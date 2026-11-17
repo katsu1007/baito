@@ -339,20 +339,20 @@
         </div>
         <div>
           <label class="flabel" for="fStart">出勤時刻</label>
-          <input class="field" id="fStart" type="text" inputmode="numeric" placeholder="例：9:30 / 930" autocomplete="off" enterkeyhint="next" required />
+          <input class="field" id="fStart" type="text" inputmode="numeric" placeholder="例：9:30 / 930" autocomplete="off" enterkeyhint="next" />
         </div>
         <div>
           <label class="flabel" for="fEnd">退勤時刻</label>
-          <input class="field" id="fEnd" type="text" inputmode="numeric" placeholder="例：17:30 / 1730" autocomplete="off" enterkeyhint="done" required />
+          <input class="field" id="fEnd" type="text" inputmode="numeric" placeholder="例：17:30 / 1730" autocomplete="off" enterkeyhint="done" />
         </div>
-        <p class="time-hint full">時刻は数字キーボードで直接入力できます。「9:30」でも「930」でもOKです（欄から離れると 09:30 の形に整います）。</p>
+        <p class="time-hint full" id="timeHint">時刻は最初は空白です。数字キーボードで直接入力してください（「9:30」でも「930」でもOK、欄から離れると 09:30 の形に整います）。出勤・退勤の両方が必要です。</p>
         <div>
           <label class="flabel" for="fBreak">休憩（分）</label>
           <input class="field" id="fBreak" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" value="" placeholder="空白＝0分" enterkeyhint="done" />
         </div>
         <div>
-          <label class="flabel" for="fWage">時給（円）</label>
-          <input class="field" id="fWage" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" enterkeyhint="done" />
+          <label class="flabel">時給（円）</label>
+          <p class="setnote" style="margin:2px 0 0" id="fWageNote">設定の時給がそのまま記録されます。</p>
         </div>
         <div class="full">
           <label class="flabel" for="fPlace">場所・勤務先</label>
@@ -660,11 +660,16 @@
   function openForm(rec){
     editingId = rec ? rec.id : null;
     $("formTitle").textContent = rec ? "勤務を編集" : "勤務を追加";
+    $("timeHint").textContent = rec
+      ? "時刻は数字キーボードで直接入力できます（「9:30」でも「930」でもOK、欄から離れると 09:30 の形に整います）。出勤・退勤の両方が必要です。"
+      : "時刻は最初は空白です。数字キーボードで直接入力してください（「9:30」でも「930」でもOK、欄から離れると 09:30 の形に整います）。出勤・退勤の両方が必要です。";
     $("fDate").value = rec ? rec.date : dateStr(new Date());
-    $("fStart").value = rec ? rec.start : "09:00";
-    $("fEnd").value = rec ? rec.end : "17:00";
+    $("fStart").value = rec ? rec.start : "";
+    $("fEnd").value = rec ? rec.end : "";
     $("fBreak").value = rec ? (rec.breakMin!=null ? rec.breakMin : "") : "";
-    $("fWage").value = rec ? (rec.wage!=null? rec.wage : state.settings.wage) : state.settings.wage;
+    $("fWageNote").textContent = rec
+      ? "この記録の時給は "+fmtYen(rec.wage!=null? rec.wage : state.settings.wage)+" のままです。設定で時給を変えても、この記録の給料は変わりません。"
+      : "設定の時給（"+fmtYen(state.settings.wage)+"）がそのまま記録されます。変えたいときは先に設定から変更してください。";
     $("fPlace").value = rec ? (rec.place||"") : (state.settings.lastPlace||"");
     $("fTransport").value = rec ? (rec.transport||0) : state.settings.transport;
     $("fMemo").value = rec ? (rec.memo||"") : "";
@@ -685,13 +690,12 @@
     var start = parseTimeInput($("fStart").value);
     var end = parseTimeInput($("fEnd").value);
     if(!date){ toast("日付を入れてください"); return; }
-    if(!start){ $("fStart").classList.add("invalid"); $("fStart").focus(); toast("出勤時刻は 9:30 や 930 のように入力してください"); return; }
-    if(!end){ $("fEnd").classList.add("invalid"); $("fEnd").focus(); toast("退勤時刻は 17:30 や 1730 のように入力してください"); return; }
+    if(!start){ $("fStart").classList.add("invalid"); $("fStart").focus(); toast($("fStart").value.trim()? "出勤時刻は 9:30 や 930 のように入力してください" : "出勤時刻が未入力です（9:30 や 930 のように入力してください）"); return; }
+    if(!end){ $("fEnd").classList.add("invalid"); $("fEnd").focus(); toast($("fEnd").value.trim()? "退勤時刻は 17:30 や 1730 のように入力してください" : "退勤時刻が未入力です（17:30 や 1730 のように入力してください）"); return; }
     $("fStart").value = start; $("fEnd").value = end;
     var data = {
       date: date, start: start, end: end,
       breakMin: Math.max(0, parseInt($("fBreak").value,10)||0),
-      wage: Math.max(0, parseInt($("fWage").value,10)||0),
       place: $("fPlace").value.trim(),
       transport: Math.max(0, parseInt($("fTransport").value,10)||0),
       memo: $("fMemo").value.trim()
@@ -703,6 +707,7 @@
       toast("記録を更新しました");
     }else{
       data.id = uid();
+      data.wage = state.settings.wage; // 新規は保存時点の設定時給を記録（あとで設定を変えても過去分は変わらない）
       state.records.push(data);
       toast("記録を追加しました");
     }
