@@ -104,8 +104,34 @@
   .stat b.money{color:var(--money)}
   .stat span{font-size:11.5px;color:var(--muted);font-weight:700}
   .stat .sub{display:block;font-size:11px;color:var(--muted);font-weight:600}
-  .csvrow{margin-top:14px}
+  .csvrow{margin-top:14px;display:flex;flex-direction:column;gap:10px}
   .csvrow .btn{width:100%}
+  /* 数字入力：ステッパーを消してタイピング専用に見せる（キーボードは inputmode で数字に） */
+  input[type="number"]{-moz-appearance:textfield;appearance:textfield}
+  input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+  /* 印刷／PDF専用（画面では非表示） */
+  .print-only{display:none}
+  @page{size:A4 landscape;margin:12mm}
+  @media print{
+    body{background:#fff!important;color:#000!important;padding:0!important}
+    .wrap,.overlay,.toast{display:none!important}
+    .print-only{display:block!important;color:#000;background:#fff;font-size:12px;line-height:1.45}
+    .print-only h1{font-size:20px;margin:0 0 4px;letter-spacing:.02em}
+    .print-only .p-meta{font-size:11px;color:#444;margin:0 0 10px}
+    .print-summary{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+    .print-summary div{border:1px solid #bbb;border-radius:8px;padding:8px 12px;min-width:150px}
+    .print-summary span{display:block;font-size:11px;color:#555;font-weight:700}
+    .print-summary b{font-size:16px;font-variant-numeric:tabular-nums}
+    .print-table{width:100%;border-collapse:collapse;table-layout:auto}
+    .print-table th,.print-table td{border:1px solid #999;padding:5px 6px;vertical-align:top;word-break:break-word}
+    .print-table th{background:#eef4f2!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:11px;text-align:left;white-space:nowrap}
+    .print-table td{font-size:11.5px}
+    .print-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .print-table .center{text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .print-table tfoot td{font-weight:800;background:#f7f7f7!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .print-note{font-size:10.5px;color:#555;margin-top:10px}
+  }
 
   /* 記録リスト */
   .rec{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;background:var(--card)}
@@ -202,11 +228,11 @@
     <div class="setgrid">
       <div>
         <label class="flabel" for="wageInput">時給（円）</label>
-        <div class="yen-wrap"><input class="field" id="wageInput" type="number" inputmode="numeric" min="0" step="1" placeholder="1000" /></div>
+        <div class="yen-wrap"><input class="field" id="wageInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" placeholder="1000" enterkeyhint="done" /></div>
       </div>
       <div>
         <label class="flabel" for="transportInput">交通費（1勤務あたり・円）</label>
-        <div class="yen-wrap"><input class="field" id="transportInput" type="number" inputmode="numeric" min="0" step="1" placeholder="0" /></div>
+        <div class="yen-wrap"><input class="field" id="transportInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" placeholder="0" enterkeyhint="done" /></div>
       </div>
     </div>
     <p class="setnote">給料は「実働時間 × 時給 ＋ 交通費」だけです。深夜・残業の割増はありません。時給は勤務ごとに記録されるので、あとで時給を変更しても過去の給料は変わりません。</p>
@@ -229,6 +255,11 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
         この月の一覧をCSVで出力
       </button>
+      <button class="btn" id="pdfBtn" type="button">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>
+        この月の一覧をPDFで出力
+      </button>
+      <p class="setnote" style="margin:0">PDFボタンを押すと印刷画面が開きます。iPhoneでは印刷画面をピンチアウト（広げる）するか、共有ボタンから「PDFとして保存／ファイルに保存」を選んでください。</p>
     </div>
   </section>
 
@@ -276,8 +307,11 @@
     </details>
   </section>
 
-  <p style="text-align:center;font-size:12px;color:var(--muted);margin:18px 0 0">記録はこの端末内にのみ保存されます。ブラウザのデータを消すと記録も消えるので、月末にCSVで残すのがおすすめです。</p>
+  <p style="text-align:center;font-size:12px;color:var(--muted);margin:18px 0 0">記録はこの端末内にのみ保存されます。ブラウザのデータを消すと記録も消えるので、月末にCSVやPDFで残すのがおすすめです。</p>
 </div>
+
+<!-- 印刷／PDF用の一覧（画面では非表示、印刷時のみ表示） -->
+<div id="printArea" class="print-only" aria-hidden="true"></div>
 
 <!-- 追加・編集シート -->
 <div class="overlay" id="formOverlay" role="dialog" aria-modal="true" aria-labelledby="formTitle">
@@ -299,11 +333,11 @@
         </div>
         <div>
           <label class="flabel" for="fBreak">休憩（分）</label>
-          <input class="field" id="fBreak" type="number" inputmode="numeric" min="0" step="1" value="0" />
+          <input class="field" id="fBreak" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" value="" placeholder="空白＝0分" enterkeyhint="done" />
         </div>
         <div>
           <label class="flabel" for="fWage">時給（円）</label>
-          <input class="field" id="fWage" type="number" inputmode="numeric" min="0" step="1" />
+          <input class="field" id="fWage" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" enterkeyhint="done" />
         </div>
         <div class="full">
           <label class="flabel" for="fPlace">場所・勤務先</label>
@@ -311,14 +345,14 @@
         </div>
         <div>
           <label class="flabel" for="fTransport">交通費（円）</label>
-          <input class="field" id="fTransport" type="number" inputmode="numeric" min="0" step="1" value="0" />
+          <input class="field" id="fTransport" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" value="0" enterkeyhint="done" />
         </div>
         <div>
           <label class="flabel" for="fMemo">メモ</label>
           <input class="field" id="fMemo" type="text" placeholder="任意" autocomplete="off" />
         </div>
       </div>
-      <p class="setnote">退勤が出勤より早い時刻の場合は、翌日まで働いたものとして計算します（夜勤など）。</p>
+      <p class="setnote">休憩は空白のまま保存すると0分として計算します。退勤が出勤より早い時刻の場合は、翌日まで働いたものとして計算します（夜勤など）。</p>
       <div class="btnrow">
         <button class="btn" type="button" id="formCancel">キャンセル</button>
         <button class="btn primary" type="submit" id="formSave">保存する</button>
@@ -522,6 +556,7 @@
     var t = new Date();
     $("nextMonth").disabled = (viewY > t.getFullYear()) || (viewY===t.getFullYear() && viewM >= t.getMonth());
     $("listTitle").textContent = viewY+"年"+(viewM+1)+"月の記録";
+    updatePrintArea();
   }
   $("prevMonth").addEventListener("click", function(){
     viewM--; if(viewM<0){ viewM=11; viewY--; } renderSummary(); renderList();
@@ -576,7 +611,7 @@
     $("fDate").value = rec ? rec.date : dateStr(new Date());
     $("fStart").value = rec ? rec.start : "09:00";
     $("fEnd").value = rec ? rec.end : "17:00";
-    $("fBreak").value = rec ? (rec.breakMin||0) : 60;
+    $("fBreak").value = rec ? (rec.breakMin!=null ? rec.breakMin : "") : "";
     $("fWage").value = rec ? (rec.wage!=null? rec.wage : state.settings.wage) : state.settings.wage;
     $("fPlace").value = rec ? (rec.place||"") : (state.settings.lastPlace||"");
     $("fTransport").value = rec ? (rec.transport||0) : state.settings.transport;
@@ -600,7 +635,7 @@
       transport: Math.max(0, parseInt($("fTransport").value,10)||0),
       memo: $("fMemo").value.trim()
     };
-    if(data.breakMin >= spanMin(start,end)){ toast("休憩が勤務時間以上になっています"); return; }
+    if(data.breakMin > 0 && data.breakMin >= spanMin(start,end)){ toast("休憩が勤務時間以上になっています"); return; }
     if(editingId){
       var rec = state.records.find(function(r){ return r.id===editingId; });
       if(rec) Object.assign(rec, data);
@@ -666,6 +701,79 @@
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
     toast((viewM+1)+"月の一覧をCSVで出力しました");
   });
+
+  /* ---------- PDF出力（印刷レイアウト経由） ---------- */
+  function sortedMonthAsc(){
+    var key = viewY+"-"+pad(viewM+1);
+    return state.records.filter(function(r){ return r.date.indexOf(key)===0; })
+      .sort(function(a,b){ return (a.date+a.start) < (b.date+b.start) ? -1 : 1; });
+  }
+  function updatePrintArea(){
+    var area = $("printArea"); if(!area) return;
+    var recs = sortedMonthAsc();
+    var title = "勤務記録 "+viewY+"年"+(viewM+1)+"月";
+    if(!recs.length){
+      area.innerHTML = "<h1>"+esc(title)+"</h1>"+'<p class="p-meta">この月の記録はありません。</p>';
+      return;
+    }
+    var days = {}; var tMin=0, tBreak=0, tTrans=0, tPay=0;
+    recs.forEach(function(r){
+      days[r.date]=1; tMin += workedMin(r); tBreak += (r.breakMin||0); tTrans += (r.transport||0); tPay += payOf(r);
+    });
+    var dayCount = Object.keys(days).length;
+    var today = new Date();
+    var html = "<h1>"+esc(title)+"</h1>";
+    html += '<p class="p-meta">出力日：'+today.getFullYear()+"年"+(today.getMonth()+1)+"月"+today.getDate()+"日 ／ 給料 ＝ 実働時間 × 時給 ＋ 交通費（割増なし）</p>";
+    html += '<div class="print-summary">'
+      + "<div><span>勤務日数</span><b>"+dayCount+"日</b></div>"
+      + "<div><span>勤務回数</span><b>"+recs.length+"回</b></div>"
+      + "<div><span>実働時間（合計）</span><b>"+esc(fmtDur(tMin))+"</b></div>"
+      + "<div><span>給料見込み（合計）</span><b>"+esc(fmtYen(tPay))+"</b></div>"
+      + "</div>";
+    html += '<table class="print-table"><thead><tr>'
+      + "<th>日付</th><th>曜日</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働時間</th><th>場所・勤務先</th><th>メモ</th><th>時給</th><th>交通費</th><th>給料</th>"
+      + "</tr></thead><tbody>";
+    recs.forEach(function(r){
+      var d = new Date(r.date+"T00:00:00");
+      var wm = workedMin(r);
+      var wage = (r.wage!=null? r.wage : state.settings.wage) || 0;
+      html += "<tr>"
+        + '<td class="center">'+esc(r.date)+"</td>"
+        + '<td class="center">'+esc(DOW[d.getDay()])+"</td>"
+        + '<td class="center">'+esc(r.start)+"</td>"
+        + '<td class="center">'+esc(r.end)+"</td>"
+        + '<td class="center">'+(r.breakMin||0)+"分</td>"
+        + '<td class="center">'+esc(fmtDur(wm))+"</td>"
+        + "<td>"+esc(r.place||"")+"</td>"
+        + "<td>"+esc(r.memo||"")+"</td>"
+        + '<td class="num">'+esc(fmtYen(wage))+"</td>"
+        + '<td class="num">'+esc(fmtYen(r.transport||0))+"</td>"
+        + '<td class="num">'+esc(fmtYen(payOf(r)))+"</td>"
+        + "</tr>";
+    });
+    html += "</tbody><tfoot><tr>"
+      + '<td colspan="4">合計（'+dayCount+"日 ／ "+recs.length+'勤務）</td>'
+      + '<td class="center">'+tBreak+'分</td>'
+      + '<td class="center">'+esc(fmtDur(tMin))+"</td>"
+      + '<td colspan="3"></td>'
+      + '<td class="num">'+esc(fmtYen(tTrans))+"</td>"
+      + '<td class="num">'+esc(fmtYen(tPay))+"</td>"
+      + "</tr></tfoot></table>";
+    html += '<p class="print-note">休憩が空白で保存された勤務は0分として計算しています。</p>';
+    area.innerHTML = html;
+  }
+  if($("pdfBtn")){
+    $("pdfBtn").addEventListener("click", function(){
+      var recs = sortedMonthAsc();
+      if(!recs.length){ toast("この月の記録がありません"); return; }
+      updatePrintArea();
+      setTimeout(function(){
+        try{ window.print(); }
+        catch(e){ toast("印刷画面を開けませんでした"); }
+      }, 80);
+    });
+  }
+  window.addEventListener("beforeprint", function(){ updatePrintArea(); });
 
   /* ---------- HTMLダウンロード（GitHub Pages用） ---------- */
   $("downloadHtmlBtn").addEventListener("click", function(){
