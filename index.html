@@ -95,6 +95,10 @@
   .yen-wrap{position:relative}
   .yen-wrap .field{padding-left:28px}
   .yen-wrap::before{content:"¥";position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700}
+  .update-box{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)}
+  .update-box .btn{width:100%}
+  .update-note{font-size:12.5px;color:var(--muted);margin:8px 0 0;line-height:1.6}
+  .update-note b{color:var(--ink)}
 
   /* 月サマリー */
   .monthnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
@@ -239,6 +243,13 @@
       </div>
     </div>
     <p class="setnote">給料は「実働時間 × 時給 ＋ 交通費」だけです。深夜・残業の割増はありません。時給は勤務ごとに記録されるので、あとで時給を変更しても過去の給料は変わりません。</p>
+    <div class="update-box">
+      <button class="btn" id="updateBtn" type="button">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        <span id="updateBtnLabel">最新版に更新</span>
+      </button>
+      <p class="update-note"><b>記録は消えません。</b>更新はこのボタンでできます（アイコンの削除・入れ直しは不要）。ホーム画面のままで、Safariで開け直さなくても最新版になります。</p>
+    </div>
   </section>
 
   <!-- 月のまとめ -->
@@ -824,6 +835,47 @@
     });
   }
   window.addEventListener("beforeprint", function(){ updatePrintArea(); });
+
+  /* ---------- 最新版に更新（キャッシュを避けて取り直す） ---------- */
+  /* 保存先（LS_KEY = baito-kinmu-kiroku-v1）は変更しない。再読み込みしても記録はそのまま残る */
+  if($("updateBtn")){
+    $("updateBtn").addEventListener("click", function(){
+      var btn = $("updateBtn");
+      var label = $("updateBtnLabel");
+      btn.disabled = true;
+      if(label) label.textContent = "更新しています…";
+      // 先に保存を確定させてから再読み込みする（記録を消さない）
+      save();
+      var target;
+      try{
+        var u = new URL(window.location.href);
+        u.searchParams.set("_upd", String(Date.now()));
+        target = u.toString();
+      }catch(e){
+        var sep = window.location.href.indexOf("?") >= 0 ? "&" : "?";
+        target = window.location.href + sep + "_upd=" + Date.now();
+      }
+      var done = false;
+      function go(){
+        if(done) return; done = true;
+        try{ window.location.replace(target); }
+        catch(e){ window.location.href = target; }
+      }
+      // サーバーから最新を取り直すようブラウザに促してから遷移する（失敗しても遷移はする）
+      try{
+        var base;
+        try{ var bu = new URL(window.location.href); bu.search = ""; bu.hash = ""; base = bu.toString(); }
+        catch(e2){ base = window.location.href.split("#")[0].split("?")[0]; }
+        if(window.fetch){
+          var raced = false;
+          var timer = setTimeout(function(){ if(!raced){ raced = true; go(); } }, 2500);
+          fetch(base, { cache: "reload", credentials: "same-origin" })
+            .then(function(){ if(!raced){ raced = true; clearTimeout(timer); go(); } })
+            .catch(function(){ if(!raced){ raced = true; clearTimeout(timer); go(); } });
+        }else{ go(); }
+      }catch(e){ go(); }
+    });
+  }
 
   /* ---------- HTMLダウンロード（GitHub Pages用） ---------- */
   $("downloadHtmlBtn").addEventListener("click", function(){
