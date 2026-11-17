@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+<!-- PWA / ホーム画面追加用 -->
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="バイト勤務記録" />
+<meta name="application-name" content="バイト勤務記録" />
+<meta name="description" content="バイトの出勤・退勤・休憩を記録して、実働時間と給料（実働時間×時給＋交通費）を自動計算する勤務記録アプリ" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f766e'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='white' stroke-width='7'/%3E%3Cpath d='M50 34v17l12 8' fill='none' stroke='white' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f766e'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='white' stroke-width='7'/%3E%3Cpath d='M50 34v17l12 8' fill='none' stroke='white' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="manifest" href='data:application/manifest+json,{"name":"バイト勤務記録","short_name":"勤務記録","display":"standalone","start_url":".","background_color":"%23f4f6f5","theme_color":"%230f766e","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%230f766e%27/%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2730%27 fill=%27none%27 stroke=%27white%27 stroke-width=%277%27/%3E%3Cpath d=%27M50 34v17l12 8%27 fill=%27none%27 stroke=%27white%27 stroke-width=%277%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml"}]}' />
+<title>バイト勤務記録</title>
+<style>
+  :root{
+    --bg:#f2f5f4; --card:#ffffff; --card2:#eef4f2; --ink:#16211f; --muted:#5c6d6a;
+    --line:#dce5e2; --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#e0f2ef;
+    --warn:#b45309; --warn-soft:#fdf0dd; --danger:#b42318; --danger-soft:#fdecea;
+    --money:#8a5a00; --money-soft:#fdf3d7;
+    --shadow:0 1px 2px rgba(16,40,36,.06),0 8px 24px -12px rgba(16,40,36,.18);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d1514; --card:#16201e; --card2:#1b2926; --ink:#e7efed; --muted:#9db3ae;
+      --line:#2a3a37; --accent:#2dd4bf; --accent-ink:#06231f; --accent-soft:#123832;
+      --warn:#f0b35e; --warn-soft:#3a2a12; --danger:#ff9a8f; --danger-soft:#3d1a16;
+      --money:#f2cd72; --money-soft:#38300f;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+    line-height:1.55;padding:0 0 calc(40px + env(safe-area-inset-bottom));}
+  button,[role="button"],select,summary,input:not([type="checkbox"],[type="radio"]){min-height:44px}
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--ink)}
+  .wrap{max-width:640px;margin:0 auto;padding:16px 14px 0}
+
+  .today{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 2px 12px}
+  .today .d{font-size:15px;font-weight:700;letter-spacing:.02em}
+  .today .clock{font-variant-numeric:tabular-nums;font-size:22px;font-weight:800}
+  .today .clock small{display:block;font-size:11px;font-weight:600;color:var(--muted);text-align:right;letter-spacing:.08em}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 16px;margin-bottom:14px}
+  .card h2{font-size:13px;margin:0 0 12px;color:var(--muted);letter-spacing:.1em;font-weight:700}
+  label.flabel{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin:0 0 6px}
+  .field{width:100%;border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:10px 12px;font-size:16px}
+  .field:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  textarea.field{resize:vertical;min-height:44px}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;border:1.5px solid var(--line);
+    background:var(--card);color:var(--ink);font-weight:700;font-size:15px;padding:10px 16px;text-decoration:none}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .btn.big{width:100%;font-size:19px;padding:16px;border-radius:13px;letter-spacing:.04em}
+  .btn.warn{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
+  .btn.danger-ghost{background:transparent;border-color:transparent;color:var(--danger)}
+  .btn.small{min-height:38px;padding:6px 12px;font-size:13.5px;border-radius:9px}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap}
+  .btnrow .btn{flex:1 1 140px}
+
+  /* 勤務中 */
+  .live-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .live-badge{display:inline-flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent);
+    font-weight:800;font-size:13px;border-radius:999px;padding:5px 12px}
+  .live-badge .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);animation:pulse 1.6s infinite}
+  .live-badge.onbreak{background:var(--warn-soft);color:var(--warn)}
+  .live-badge.onbreak .dot{background:var(--warn);animation:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @media (prefers-reduced-motion: reduce){.live-badge .dot{animation:none}}
+  .live-place{font-size:15px;font-weight:700;margin-top:4px;word-break:break-all}
+  .live-place:empty{display:none}
+  .timer{font-variant-numeric:tabular-nums;font-size:44px;font-weight:800;letter-spacing:.01em;line-height:1.15;margin:10px 0 2px}
+  .timer-label{font-size:12.5px;color:var(--muted);font-weight:600}
+  .live-meta{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0 16px;padding-top:12px;border-top:1px dashed var(--line)}
+  .live-meta div b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+  .live-meta div span{font-size:11.5px;color:var(--muted);font-weight:600}
+
+  /* 設定 */
+  .setgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .setnote{font-size:12.5px;color:var(--muted);margin:10px 0 0}
+  .yen-wrap{position:relative}
+  .yen-wrap .field{padding-left:28px}
+  .yen-wrap::before{content:"¥";position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700}
+
+  /* 月サマリー */
+  .monthnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+  .monthnav .m{font-size:18px;font-weight:800}
+  .monthnav button{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--line);background:var(--card);font-size:17px;color:var(--ink);display:flex;align-items:center;justify-content:center}
+  .monthnav button:disabled{opacity:.35}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .stat{background:var(--card2);border-radius:11px;padding:12px 10px;text-align:center}
+  .stat b{display:block;font-size:19px;font-variant-numeric:tabular-nums;line-height:1.3}
+  .stat b.money{color:var(--money)}
+  .stat span{font-size:11.5px;color:var(--muted);font-weight:700}
+  .stat .sub{display:block;font-size:11px;color:var(--muted);font-weight:600}
+  .csvrow{margin-top:14px}
+  .csvrow .btn{width:100%}
+
+  /* 記録リスト */
+  .rec{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;background:var(--card)}
+  .rec-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .rec-date{font-weight:800;font-size:15.5px}
+  .rec-date .dow{font-size:12px;color:var(--muted);font-weight:700;margin-left:4px}
+  .rec-pay{font-weight:800;font-variant-numeric:tabular-nums;color:var(--money);background:var(--money-soft);border-radius:8px;padding:3px 9px;font-size:14.5px;white-space:nowrap}
+  .rec-times{font-variant-numeric:tabular-nums;font-size:14.5px;margin-top:5px}
+  .rec-times .arr{color:var(--muted);margin:0 3px}
+  .rec-sub{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;gap:12px;flex-wrap:wrap}
+  .rec-place{font-size:13.5px;font-weight:700;margin-top:5px;display:flex;align-items:center;gap:5px;word-break:break-all}
+  .rec-place svg{flex:none}
+  .rec-memo{font-size:12.5px;color:var(--muted);margin-top:3px;white-space:pre-wrap;word-break:break-all}
+  .rec-actions{display:flex;gap:6px;margin-top:10px}
+  .rec-actions .btn{flex:0 0 auto}
+  .empty{border:1.5px dashed var(--line);border-radius:12px;padding:26px 16px;text-align:center;color:var(--muted);font-size:14px;background:transparent}
+  .empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+
+  details.guide summary{cursor:pointer;font-weight:800;font-size:15px;padding:4px 0;list-style:none;display:flex;align-items:center;gap:8px;min-height:44px}
+  details.guide summary::-webkit-details-marker{display:none}
+  details.guide summary .chev{margin-left:auto;color:var(--muted);transition:transform .2s}
+  details.guide[open ] summary .chev{transform:rotate(180deg)}
+  .guide-body{font-size:13.5px;color:var(--ink)}
+  .guide-body h3{font-size:13.5px;margin:16px 0 6px}
+  .guide-body ol{margin:0;padding-left:20px}
+  .guide-body li{margin-bottom:5px}
+  .guide-body code{background:var(--card2);border-radius:5px;padding:1px 6px;font-size:12.5px;word-break:break-all}
+  .guide-body p{margin:6px 0}
+
+  /* モーダル */
+  .overlay{position:fixed;inset:0;background:rgba(8,20,18,.55);display:none;align-items:flex-end;justify-content:center;z-index:50;padding:0}
+  .overlay.open{display:flex}
+  .sheet{background:var(--card);width:100%;max-width:640px;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+  @media (min-width:560px){.overlay{align-items:center;padding:20px}.sheet{border-radius:18px}}
+  .sheet h2{font-size:17px;margin:0 0 16px;letter-spacing:0;color:var(--ink)}
+  .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .formgrid .full{grid-column:1/-1}
+  .sheet .btnrow{margin-top:18px}
+  .confirm-msg{font-size:15px;margin:0 0 6px}
+  .confirm-sub{font-size:13px;color:var(--muted);margin:0}
+
+  .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translate(-50%,80px);background:var(--ink);color:var(--bg);
+    font-size:14px;font-weight:700;border-radius:999px;padding:11px 20px;z-index:80;opacity:0;transition:all .25s;pointer-events:none;max-width:92vw;text-align:center}
+  .toast.show{transform:translate(-50%,0);opacity:1}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="today">
+    <div>
+      <div class="d" id="todayLabel">—</div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600">バイト勤務記録</div>
+    </div>
+    <div class="clock"><span id="nowClock">--:--:--</span><small>現在時刻</small></div>
+  </div>
+
+  <!-- 打刻カード -->
+  <section class="card" id="punchCard" aria-label="打刻">
+    <!-- 未出勤 -->
+    <div id="punchIdle">
+      <h2>出勤打刻</h2>
+      <label class="flabel" for="placeInput">場所・勤務先</label>
+      <input class="field" id="placeInput" type="text" placeholder="例：○○カフェ △△店" autocomplete="off" />
+      <p class="setnote" style="margin:8px 0 14px">前回使った場所が自動で入ります。空欄でも出勤できます。</p>
+      <button class="btn primary big" id="clockInBtn" type="button">出勤する</button>
+    </div>
+    <!-- 勤務中 -->
+    <div id="punchLive" hidden>
+      <div class="live-top">
+        <div>
+          <span class="live-badge" id="liveBadge"><span class="dot"></span><span id="liveBadgeText">勤務中</span></span>
+          <div class="live-place" id="livePlace"></div>
+        </div>
+      </div>
+      <div class="timer" id="liveTimer">0:00:00</div>
+      <div class="timer-label">実働時間（休憩を除く）</div>
+      <div class="live-meta">
+        <div><span>出勤</span><b id="liveStart">--:--</b></div>
+        <div><span>休憩の合計</span><b id="liveBreak">0分</b></div>
+        <div><span>いま退勤した場合の給料</span><b id="livePay">¥0</b></div>
+      </div>
+      <div class="btnrow">
+        <button class="btn warn" id="breakBtn" type="button">休憩を開始</button>
+        <button class="btn primary" id="clockOutBtn" type="button">退勤する</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section class="card" aria-label="設定">
+    <h2>設定（給料計算）</h2>
+    <div class="setgrid">
+      <div>
+        <label class="flabel" for="wageInput">時給（円）</label>
+        <div class="yen-wrap"><input class="field" id="wageInput" type="number" inputmode="numeric" min="0" step="1" placeholder="1000" /></div>
+      </div>
+      <div>
+        <label class="flabel" for="transportInput">交通費（1勤務あたり・円）</label>
+        <div class="yen-wrap"><input class="field" id="transportInput" type="number" inputmode="numeric" min="0" step="1" placeholder="0" /></div>
+      </div>
+    </div>
+    <p class="setnote">給料は「実働時間 × 時給 ＋ 交通費」だけです。深夜・残業の割増はありません。時給は勤務ごとに記録されるので、あとで時給を変更しても過去の給料は変わりません。</p>
+  </section>
+
+  <!-- 月のまとめ -->
+  <section class="card" aria-label="月のまとめ">
+    <div class="monthnav">
+      <button type="button" id="prevMonth" aria-label="前の月">‹</button>
+      <div class="m" id="monthLabel">—</div>
+      <button type="button" id="nextMonth" aria-label="次の月">›</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>勤務日数</span><b id="statDays">0日</b></div>
+      <div class="stat"><span>実働時間</span><b id="statHours">0時間</b><span class="sub" id="statHoursSub"></span></div>
+      <div class="stat"><span>給料見込み</span><b class="money" id="statPay">¥0</b></div>
+    </div>
+    <div class="csvrow">
+      <button class="btn" id="csvBtn" type="button">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
+        この月の一覧をCSVで出力
+      </button>
+    </div>
+  </section>
+
+  <!-- 記録一覧 -->
+  <section aria-label="勤務記録一覧">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 12px">
+      <h2 style="font-size:16px;margin:0" id="listTitle">勤務記録</h2>
+      <button class="btn small primary" id="addBtn" type="button">＋ 過去分を追加</button>
+    </div>
+    <div id="recordList"></div>
+  </section>
+
+  <!-- 使い方 -->
+  <section class="card" style="margin-top:16px">
+    <details class="guide">
+      <summary>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M11 18.5h2"/></svg>
+        ホーム画面に追加する方法・GitHub Pagesへの置き方
+        <span class="chev">▾</span>
+      </summary>
+      <div class="guide-body">
+        <h3>iPhoneのホーム画面に追加（このページを開いている場合）</h3>
+        <ol>
+          <li>Safariでこのページを開く</li>
+          <li>下の共有ボタン（四角に↑のマーク）を押す</li>
+          <li>「ホーム画面に追加」を選んで「追加」</li>
+        </ol>
+        <p>追加後はアプリのように全画面で開けます。記録はこの端末の中（ブラウザの保存領域）に残ります。</p>
+
+        <h3>GitHub Pagesに置いて自分のURLで使う場合</h3>
+        <ol>
+          <li>下のボタンで、このアプリのHTMLファイルをダウンロードする</li>
+          <li>GitHubで新しいリポジトリを作り（例：<code>baito-record</code>）、ダウンロードしたファイルを <code>index.html</code> という名前でアップロードする</li>
+          <li>リポジトリの Settings → Pages で、公開元に「main ブランチ / ルート」を選ぶ</li>
+          <li>表示されたURL（<code>https://ユーザー名.github.io/baito-record/</code>）をSafariで開き、上の手順でホーム画面に追加する</li>
+        </ol>
+        <p>ファイルは1つだけです。記録はURLを開いた端末・ブラウザごとに保存されます（今このページで付けた記録は、GitHub Pages版には自動では移りません）。</p>
+        <div class="btnrow" style="margin-top:14px">
+          <button class="btn" id="downloadHtmlBtn" type="button">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
+            このアプリのHTMLをダウンロード
+          </button>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <p style="text-align:center;font-size:12px;color:var(--muted);margin:18px 0 0">記録はこの端末内にのみ保存されます。ブラウザのデータを消すと記録も消えるので、月末にCSVで残すのがおすすめです。</p>
+</div>
+
+<!-- 追加・編集シート -->
+<div class="overlay" id="formOverlay" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+  <div class="sheet">
+    <h2 id="formTitle">勤務を追加</h2>
+    <form id="recordForm">
+      <div class="formgrid">
+        <div class="full">
+          <label class="flabel" for="fDate">日付</label>
+          <input class="field" id="fDate" type="date" required />
+        </div>
+        <div>
+          <label class="flabel" for="fStart">出勤</label>
+          <input class="field" id="fStart" type="time" required />
+        </div>
+        <div>
+          <label class="flabel" for="fEnd">退勤</label>
+          <input class="field" id="fEnd" type="time" required />
+        </div>
+        <div>
+          <label class="flabel" for="fBreak">休憩（分）</label>
+          <input class="field" id="fBreak" type="number" inputmode="numeric" min="0" step="1" value="0" />
+        </div>
+        <div>
+          <label class="flabel" for="fWage">時給（円）</label>
+          <input class="field" id="fWage" type="number" inputmode="numeric" min="0" step="1" />
+        </div>
+        <div class="full">
+          <label class="flabel" for="fPlace">場所・勤務先</label>
+          <input class="field" id="fPlace" type="text" placeholder="例：○○カフェ △△店" autocomplete="off" />
+        </div>
+        <div>
+          <label class="flabel" for="fTransport">交通費（円）</label>
+          <input class="field" id="fTransport" type="number" inputmode="numeric" min="0" step="1" value="0" />
+        </div>
+        <div>
+          <label class="flabel" for="fMemo">メモ</label>
+          <input class="field" id="fMemo" type="text" placeholder="任意" autocomplete="off" />
+        </div>
+      </div>
+      <p class="setnote">退勤が出勤より早い時刻の場合は、翌日まで働いたものとして計算します（夜勤など）。</p>
+      <div class="btnrow">
+        <button class="btn" type="button" id="formCancel">キャンセル</button>
+        <button class="btn primary" type="submit" id="formSave">保存する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 削除確認 -->
+<div class="overlay" id="confirmOverlay" role="alertdialog" aria-modal="true" aria-labelledby="confirmMsg">
+  <div class="sheet">
+    <p class="confirm-msg" id="confirmMsg">この記録を削除しますか？</p>
+    <p class="confirm-sub" id="confirmSub"></p>
+    <div class="btnrow">
+      <button class="btn" type="button" id="confirmCancel">キャンセル</button>
+      <button class="btn" type="button" id="confirmDelete" style="background:var(--danger);border-color:var(--danger);color:#fff">削除する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+  var LS_KEY = "baito-kinmu-kiroku-v1";
+  var DOW = ["日","月","火","水","木","金","土"];
+
+  function $(id){ return document.getElementById(id); }
+  function pad(n){ return (n<10?"0":"")+n; }
+  function dateStr(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function timeStr(d){ return pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function fmtYen(n){ return "¥"+Math.round(n).toLocaleString("ja-JP"); }
+  function fmtDur(min){
+    min = Math.max(0, Math.round(min));
+    var h = Math.floor(min/60), m = min%60;
+    if(h===0) return m+"分";
+    return h+"時間"+(m? m+"分":"");
+  }
+  function fmtHMS(ms){
+    var s = Math.max(0, Math.floor(ms/1000));
+    var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+    return h+":"+pad(m)+":"+pad(ss);
+  }
+  function uid(){ return "r"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+  /* ---------- 状態 ---------- */
+  var state = { settings:{ wage:1000, transport:0, lastPlace:"" }, records:[], current:null };
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      if(parsed && typeof parsed==="object"){
+        if(parsed.settings) state.settings = Object.assign(state.settings, parsed.settings);
+        if(Array.isArray(parsed.records)) state.records = parsed.records;
+        if(parsed.current) state.current = parsed.current;
+      }
+    }
+  }catch(e){ /* 保存領域が使えない環境ではメモリ上のみで動く */ }
+
+  function save(){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  var now = new Date();
+  var viewY = now.getFullYear(), viewM = now.getMonth(); // 0-based
+
+  /* ---------- 計算 ---------- */
+  // "HH:MM" 同士の差分（分）。end<=start なら翌日扱い
+  function spanMin(start, end){
+    var s = start.split(":"), e = end.split(":");
+    var sm = (+s[0])*60+(+s[1]), em = (+e[0])*60+(+e[1]);
+    var d = em - sm;
+    if(d < 0) d += 24*60;
+    return d;
+  }
+  function workedMin(rec){
+    var w = spanMin(rec.start, rec.end) - (rec.breakMin||0);
+    return Math.max(0, w);
+  }
+  function payOf(rec){
+    var wage = (rec.wage!=null? rec.wage : state.settings.wage) || 0;
+    return Math.floor(workedMin(rec) * wage / 60) + (rec.transport||0);
+  }
+  function monthRecords(y, m){
+    var key = y+"-"+pad(m+1);
+    return state.records.filter(function(r){ return r.date.indexOf(key)===0; })
+      .sort(function(a,b){ return (a.date+a.start) < (b.date+b.start) ? 1 : -1; });
+  }
+
+  /* ---------- トースト ---------- */
+  var toastTimer = null;
+  function toast(msg){
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2400);
+  }
+
+  /* ---------- 打刻 ---------- */
+  function renderPunch(){
+    var cur = state.current;
+    $("punchIdle").hidden = !!cur;
+    $("punchLive").hidden = !cur;
+    if(!cur){
+      var inp = $("placeInput");
+      if(document.activeElement !== inp) inp.value = state.settings.lastPlace || "";
+      return;
+    }
+    var onBreak = !!cur.breakStartTs;
+    $("liveBadge").className = "live-badge"+(onBreak?" onbreak":"");
+    $("liveBadgeText").textContent = onBreak ? "休憩中" : "勤務中";
+    $("livePlace").textContent = cur.place || "";
+    $("liveStart").textContent = cur.startStr;
+    $("breakBtn").textContent = onBreak ? "休憩を終了" : "休憩を開始";
+    tickLive();
+  }
+  function liveBreakMs(cur, nowMs){
+    var ms = (cur.breakMin||0)*60000;
+    if(cur.breakStartTs) ms += nowMs - cur.breakStartTs;
+    return ms;
+  }
+  function tickLive(){
+    var cur = state.current; if(!cur) return;
+    var nowMs = Date.now();
+    var workedMs = (nowMs - cur.startTs) - liveBreakMs(cur, nowMs);
+    $("liveTimer").textContent = fmtHMS(workedMs);
+    $("liveBreak").textContent = fmtDur(liveBreakMs(cur, nowMs)/60000);
+    var wage = cur.wage || 0;
+    var pay = Math.floor(Math.max(0,workedMs)/60000 * wage / 60) + (cur.transport||0);
+    $("livePay").textContent = fmtYen(pay);
+  }
+
+  $("clockInBtn").addEventListener("click", function(){
+    var place = $("placeInput").value.trim();
+    var d = new Date();
+    state.current = {
+      date: dateStr(d), startTs: d.getTime(), startStr: timeStr(d),
+      place: place, breakMin: 0, breakStartTs: null,
+      wage: state.settings.wage, transport: state.settings.transport
+    };
+    state.settings.lastPlace = place;
+    save(); renderPunch();
+    toast("出勤しました（"+state.current.startStr+"）");
+  });
+
+  $("breakBtn").addEventListener("click", function(){
+    var cur = state.current; if(!cur) return;
+    if(cur.breakStartTs){
+      cur.breakMin = (cur.breakMin||0) + Math.round((Date.now()-cur.breakStartTs)/60000);
+      cur.breakStartTs = null;
+      toast("休憩を終了しました");
+    }else{
+      cur.breakStartTs = Date.now();
+      toast("休憩を開始しました");
+    }
+    save(); renderPunch();
+  });
+
+  $("clockOutBtn").addEventListener("click", function(){
+    var cur = state.current; if(!cur) return;
+    var d = new Date();
+    var breakMin = cur.breakMin||0;
+    if(cur.breakStartTs) breakMin += Math.round((d.getTime()-cur.breakStartTs)/60000);
+    var rec = {
+      id: uid(), date: cur.date, start: cur.startStr, end: timeStr(d),
+      breakMin: breakMin, place: cur.place||"", memo:"",
+      wage: cur.wage, transport: cur.transport||0
+    };
+    state.records.push(rec);
+    state.current = null;
+    // 退勤した月を表示
+    var parts = rec.date.split("-"); viewY = +parts[0]; viewM = (+parts[1])-1;
+    save(); renderAll();
+    toast("退勤しました。実働 "+fmtDur(workedMin(rec))+" ／ "+fmtYen(payOf(rec)));
+  });
+
+  /* ---------- 設定 ---------- */
+  function renderSettings(){
+    if(document.activeElement !== $("wageInput")) $("wageInput").value = state.settings.wage;
+    if(document.activeElement !== $("transportInput")) $("transportInput").value = state.settings.transport;
+  }
+  function onSettingChange(){
+    var w = parseInt($("wageInput").value,10), t = parseInt($("transportInput").value,10);
+    state.settings.wage = isNaN(w)? 0 : Math.max(0,w);
+    state.settings.transport = isNaN(t)? 0 : Math.max(0,t);
+    save(); renderSummary(); renderList();
+  }
+  $("wageInput").addEventListener("change", onSettingChange);
+  $("transportInput").addEventListener("change", onSettingChange);
+
+  /* ---------- 月サマリー ---------- */
+  function renderSummary(){
+    $("monthLabel").textContent = viewY+"年"+(viewM+1)+"月";
+    var recs = monthRecords(viewY, viewM);
+    var days = {}; var totalMin = 0, totalPay = 0;
+    recs.forEach(function(r){ days[r.date]=1; totalMin += workedMin(r); totalPay += payOf(r); });
+    $("statDays").textContent = Object.keys(days).length+"日";
+    $("statHours").textContent = fmtDur(totalMin);
+    $("statHoursSub").textContent = recs.length? "（"+recs.length+"勤務）" : "";
+    $("statPay").textContent = fmtYen(totalPay);
+    var t = new Date();
+    $("nextMonth").disabled = (viewY > t.getFullYear()) || (viewY===t.getFullYear() && viewM >= t.getMonth());
+    $("listTitle").textContent = viewY+"年"+(viewM+1)+"月の記録";
+  }
+  $("prevMonth").addEventListener("click", function(){
+    viewM--; if(viewM<0){ viewM=11; viewY--; } renderSummary(); renderList();
+  });
+  $("nextMonth").addEventListener("click", function(){
+    viewM++; if(viewM>11){ viewM=0; viewY++; } renderSummary(); renderList();
+  });
+
+  /* ---------- 一覧 ---------- */
+  function esc(s){
+    return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function renderList(){
+    var recs = monthRecords(viewY, viewM);
+    var box = $("recordList");
+    if(!recs.length){
+      box.innerHTML = '<div class="empty"><b>この月の記録はまだありません</b>出勤ボタンで打刻するか、「過去分を追加」から手入力できます。</div>';
+      return;
+    }
+    box.innerHTML = recs.map(function(r){
+      var d = new Date(r.date+"T00:00:00");
+      var dow = DOW[d.getDay()];
+      var html = '<article class="rec" data-id="'+esc(r.id)+'">';
+      html += '<div class="rec-head"><div class="rec-date">'+(+r.date.split("-")[1])+"月"+(+r.date.split("-")[2])+'日<span class="dow">（'+dow+'）</span></div>';
+      html += '<div class="rec-pay">'+fmtYen(payOf(r))+"</div></div>";
+      html += '<div class="rec-times">'+esc(r.start)+' <span class="arr">→</span> '+esc(r.end)+'</div>';
+      html += '<div class="rec-sub"><span>実働 '+fmtDur(workedMin(r))+'</span><span>休憩 '+(r.breakMin||0)+'分</span><span>時給 '+fmtYen((r.wage!=null?r.wage:state.settings.wage)).replace("¥","¥")+'</span>'+(r.transport? '<span>交通費 '+fmtYen(r.transport)+'</span>':"")+'</div>';
+      if(r.place) html += '<div class="rec-place"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>'+esc(r.place)+'</div>';
+      if(r.memo) html += '<div class="rec-memo">'+esc(r.memo)+'</div>';
+      html += '<div class="rec-actions"><button class="btn small" type="button" data-act="edit">編集</button><button class="btn small danger-ghost" type="button" data-act="del">削除</button></div>';
+      html += '</article>';
+      return html;
+    }).join("");
+  }
+  $("recordList").addEventListener("click", function(ev){
+    var btn = ev.target.closest("button[data-act]"); if(!btn) return;
+    var card = btn.closest(".rec"); if(!card) return;
+    var id = card.getAttribute("data-id");
+    var rec = state.records.find(function(r){ return r.id===id; });
+    if(!rec) return;
+    if(btn.getAttribute("data-act")==="edit") openForm(rec);
+    else openConfirm(rec);
+  });
+
+  /* ---------- 追加・編集フォーム ---------- */
+  var editingId = null;
+  function openForm(rec){
+    editingId = rec ? rec.id : null;
+    $("formTitle").textContent = rec ? "勤務を編集" : "勤務を追加";
+    $("fDate").value = rec ? rec.date : dateStr(new Date());
+    $("fStart").value = rec ? rec.start : "09:00";
+    $("fEnd").value = rec ? rec.end : "17:00";
+    $("fBreak").value = rec ? (rec.breakMin||0) : 60;
+    $("fWage").value = rec ? (rec.wage!=null? rec.wage : state.settings.wage) : state.settings.wage;
+    $("fPlace").value = rec ? (rec.place||"") : (state.settings.lastPlace||"");
+    $("fTransport").value = rec ? (rec.transport||0) : state.settings.transport;
+    $("fMemo").value = rec ? (rec.memo||"") : "";
+    $("formOverlay").classList.add("open");
+  }
+  function closeForm(){ $("formOverlay").classList.remove("open"); editingId = null; }
+  $("addBtn").addEventListener("click", function(){ openForm(null); });
+  $("formCancel").addEventListener("click", closeForm);
+  $("formOverlay").addEventListener("click", function(ev){ if(ev.target===this) closeForm(); });
+
+  $("recordForm").addEventListener("submit", function(ev){
+    ev.preventDefault();
+    var date = $("fDate").value, start = $("fStart").value, end = $("fEnd").value;
+    if(!date || !start || !end){ toast("日付と時刻を入れてください"); return; }
+    var data = {
+      date: date, start: start, end: end,
+      breakMin: Math.max(0, parseInt($("fBreak").value,10)||0),
+      wage: Math.max(0, parseInt($("fWage").value,10)||0),
+      place: $("fPlace").value.trim(),
+      transport: Math.max(0, parseInt($("fTransport").value,10)||0),
+      memo: $("fMemo").value.trim()
+    };
+    if(data.breakMin >= spanMin(start,end)){ toast("休憩が勤務時間以上になっています"); return; }
+    if(editingId){
+      var rec = state.records.find(function(r){ return r.id===editingId; });
+      if(rec) Object.assign(rec, data);
+      toast("記録を更新しました");
+    }else{
+      data.id = uid();
+      state.records.push(data);
+      toast("記録を追加しました");
+    }
+    if(data.place) state.settings.lastPlace = data.place;
+    var p = date.split("-"); viewY = +p[0]; viewM = (+p[1])-1;
+    save(); closeForm(); renderAll();
+  });
+
+  /* ---------- 削除確認 ---------- */
+  var deletingId = null;
+  function openConfirm(rec){
+    deletingId = rec.id;
+    var d = new Date(rec.date+"T00:00:00");
+    $("confirmSub").textContent = (d.getMonth()+1)+"月"+d.getDate()+"日（"+DOW[d.getDay()]+") "+rec.start+"〜"+rec.end+(rec.place? " ／ "+rec.place : "");
+    $("confirmOverlay").classList.add("open");
+  }
+  function closeConfirm(){ $("confirmOverlay").classList.remove("open"); deletingId = null; }
+  $("confirmCancel").addEventListener("click", closeConfirm);
+  $("confirmOverlay").addEventListener("click", function(ev){ if(ev.target===this) closeConfirm(); });
+  $("confirmDelete").addEventListener("click", function(){
+    state.records = state.records.filter(function(r){ return r.id!==deletingId; });
+    save(); closeConfirm(); renderSummary(); renderList();
+    toast("記録を削除しました");
+  });
+
+  /* ---------- CSV出力 ---------- */
+  function csvCell(v){
+    v = String(v==null?"":v);
+    if(/[",\n]/.test(v)) v = '"'+v.replace(/"/g,'""')+'"';
+    return v;
+  }
+  $("csvBtn").addEventListener("click", function(){
+    var key = viewY+"-"+pad(viewM+1);
+    var recs = state.records.filter(function(r){ return r.date.indexOf(key)===0; })
+      .sort(function(a,b){ return (a.date+a.start) < (b.date+b.start) ? -1 : 1; });
+    if(!recs.length){ toast("この月の記録がありません"); return; }
+    var lines = [];
+    lines.push(["日付","曜日","出勤","退勤","休憩(分)","実働時間","実働(時間)","場所・勤務先","メモ","時給","交通費","給料"].join(","));
+    var tMin=0, tTrans=0, tPay=0;
+    recs.forEach(function(r){
+      var d = new Date(r.date+"T00:00:00");
+      var wm = workedMin(r), pay = payOf(r);
+      tMin += wm; tTrans += (r.transport||0); tPay += pay;
+      lines.push([
+        r.date, DOW[d.getDay()], r.start, r.end, (r.breakMin||0),
+        fmtDur(wm), (wm/60).toFixed(2), csvCell(r.place), csvCell(r.memo),
+        (r.wage!=null? r.wage : state.settings.wage), (r.transport||0), pay
+      ].join(","));
+    });
+    lines.push(["合計","","","","", fmtDur(tMin), (tMin/60).toFixed(2), "","","", tTrans, tPay].join(","));
+    var csv = "\uFEFF" + lines.join("\r\n");
+    var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "勤務記録_"+viewY+"年"+(viewM+1)+"月.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    toast((viewM+1)+"月の一覧をCSVで出力しました");
+  });
+
+  /* ---------- HTMLダウンロード（GitHub Pages用） ---------- */
+  $("downloadHtmlBtn").addEventListener("click", function(){
+    var html = "<!doctype html>\n" + document.documentElement.outerHTML;
+    var blob = new Blob([html], {type:"text/html;charset=utf-8"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "index.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    toast("index.html をダウンロードしました");
+  });
+
+  /* ---------- 時計 ---------- */
+  function tickClock(){
+    var d = new Date();
+    $("todayLabel").textContent = d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日（"+DOW[d.getDay()]+"）";
+    $("nowClock").textContent = pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+    tickLive();
+  }
+
+  function renderAll(){ renderPunch(); renderSettings(); renderSummary(); renderList(); }
+  renderAll();
+  tickClock();
+  setInterval(tickClock, 1000);
+})();
+</script>
+</body>
+</html>
