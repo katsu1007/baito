@@ -55,6 +55,9 @@
   label.flabel{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin:0 0 6px}
   .field{width:100%;border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:10px 12px;font-size:16px}
   .field:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .field.invalid{border-color:var(--danger);background:var(--danger-soft)}
+  .field.invalid:focus{outline-color:var(--danger);border-color:var(--danger)}
+  .time-hint{grid-column:1/-1;font-size:12px;color:var(--muted);margin:-4px 0 0;line-height:1.5}
   textarea.field{resize:vertical;min-height:44px}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;border:1.5px solid var(--line);
@@ -324,13 +327,14 @@
           <input class="field" id="fDate" type="date" required />
         </div>
         <div>
-          <label class="flabel" for="fStart">出勤</label>
-          <input class="field" id="fStart" type="time" required />
+          <label class="flabel" for="fStart">出勤時刻</label>
+          <input class="field" id="fStart" type="text" inputmode="numeric" placeholder="例：9:30 / 930" autocomplete="off" enterkeyhint="next" required />
         </div>
         <div>
-          <label class="flabel" for="fEnd">退勤</label>
-          <input class="field" id="fEnd" type="time" required />
+          <label class="flabel" for="fEnd">退勤時刻</label>
+          <input class="field" id="fEnd" type="text" inputmode="numeric" placeholder="例：17:30 / 1730" autocomplete="off" enterkeyhint="done" required />
         </div>
+        <p class="time-hint full">時刻は数字キーボードで直接入力できます。「9:30」でも「930」でもOKです（欄から離れると 09:30 の形に整います）。</p>
         <div>
           <label class="flabel" for="fBreak">休憩（分）</label>
           <input class="field" id="fBreak" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" value="" placeholder="空白＝0分" enterkeyhint="done" />
@@ -419,6 +423,43 @@
 
   var now = new Date();
   var viewY = now.getFullYear(), viewM = now.getMonth(); // 0-based
+
+  /* ---------- 時刻のタイピング入力 ---------- */
+  // 全角→半角、コロン統一をしてから解釈する。「9:30」「09:30」「930」「0930」「9」に対応
+  function parseTimeInput(raw){
+    if(raw==null) return null;
+    var s = String(raw).trim();
+    if(!s) return null;
+    // 全角数字・全角コロンを半角に
+    s = s.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); });
+    s = s.replace(/：/g, ":").replace(/\s+/g, "");
+    var h, m;
+    if(s.indexOf(":") >= 0){
+      var parts = s.split(":");
+      if(parts.length !== 2) return null;
+      if(!/^\d{1,2}$/.test(parts[0]) || !/^\d{1,2}$/.test(parts[1])) return null;
+      h = parseInt(parts[0],10); m = parseInt(parts[1],10);
+    }else{
+      if(!/^\d+$/.test(s)) return null;
+      if(s.length <= 2){ h = parseInt(s,10); m = 0; }
+      else if(s.length === 3){ h = parseInt(s.slice(0,1),10); m = parseInt(s.slice(1),10); }
+      else if(s.length === 4){ h = parseInt(s.slice(0,2),10); m = parseInt(s.slice(2),10); }
+      else return null;
+    }
+    if(isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return pad(h)+":"+pad(m);
+  }
+  function bindTimeTyping(id){
+    var el = $(id); if(!el) return;
+    el.addEventListener("input", function(){ el.classList.remove("invalid"); });
+    el.addEventListener("blur", function(){
+      var v = el.value.trim();
+      if(!v){ el.classList.remove("invalid"); return; }
+      var p = parseTimeInput(v);
+      if(p){ el.value = p; el.classList.remove("invalid"); }
+      else{ el.classList.add("invalid"); }
+    });
+  }
 
   /* ---------- 計算 ---------- */
   // "HH:MM" 同士の差分（分）。end<=start なら翌日扱い
@@ -616,6 +657,8 @@
     $("fPlace").value = rec ? (rec.place||"") : (state.settings.lastPlace||"");
     $("fTransport").value = rec ? (rec.transport||0) : state.settings.transport;
     $("fMemo").value = rec ? (rec.memo||"") : "";
+    $("fStart").classList.remove("invalid");
+    $("fEnd").classList.remove("invalid");
     $("formOverlay").classList.add("open");
   }
   function closeForm(){ $("formOverlay").classList.remove("open"); editingId = null; }
@@ -623,10 +666,17 @@
   $("formCancel").addEventListener("click", closeForm);
   $("formOverlay").addEventListener("click", function(ev){ if(ev.target===this) closeForm(); });
 
+  bindTimeTyping("fStart");
+  bindTimeTyping("fEnd");
   $("recordForm").addEventListener("submit", function(ev){
     ev.preventDefault();
-    var date = $("fDate").value, start = $("fStart").value, end = $("fEnd").value;
-    if(!date || !start || !end){ toast("日付と時刻を入れてください"); return; }
+    var date = $("fDate").value;
+    var start = parseTimeInput($("fStart").value);
+    var end = parseTimeInput($("fEnd").value);
+    if(!date){ toast("日付を入れてください"); return; }
+    if(!start){ $("fStart").classList.add("invalid"); $("fStart").focus(); toast("出勤時刻は 9:30 や 930 のように入力してください"); return; }
+    if(!end){ $("fEnd").classList.add("invalid"); $("fEnd").focus(); toast("退勤時刻は 17:30 や 1730 のように入力してください"); return; }
+    $("fStart").value = start; $("fEnd").value = end;
     var data = {
       date: date, start: start, end: end,
       breakMin: Math.max(0, parseInt($("fBreak").value,10)||0),
