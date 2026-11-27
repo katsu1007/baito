@@ -124,27 +124,18 @@
   input[type="number"]{-moz-appearance:textfield;appearance:textfield}
   input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
-  /* 印刷／PDF専用（画面では非表示） */
+  /* 印刷／PDF用（zip版と同じ形式） */
   .print-only{display:none}
   @page{size:A4 landscape;margin:12mm}
   @media print{
     body{background:#fff!important;color:#000!important;padding:0!important}
     .wrap,.overlay,.toast{display:none!important}
-    .print-only{display:block!important;color:#000;background:#fff;font-size:12px;line-height:1.45}
-    .print-only h1{font-size:20px;margin:0 0 4px;letter-spacing:.02em}
-    .print-only .p-meta{font-size:11px;color:#444;margin:0 0 10px}
-    .print-summary{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}
-    .print-summary div{border:1px solid #bbb;border-radius:8px;padding:8px 12px;min-width:150px}
-    .print-summary span{display:block;font-size:11px;color:#555;font-weight:700}
-    .print-summary b{font-size:16px;font-variant-numeric:tabular-nums}
-    .print-table{width:100%;border-collapse:collapse;table-layout:auto}
-    .print-table th,.print-table td{border:1px solid #999;padding:5px 6px;vertical-align:top;word-break:break-word}
-    .print-table th{background:#eef4f2!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:11px;text-align:left;white-space:nowrap}
-    .print-table td{font-size:11.5px}
-    .print-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-    .print-table .center{text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums}
-    .print-table tfoot td{font-weight:800;background:#f7f7f7!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .print-note{font-size:10.5px;color:#555;margin-top:10px}
+    .print-only{display:block!important;color:#000;background:#fff;font-size:12px}
+    .print-only h1{font-size:19px;margin:0 0 6px}
+    .print-table{width:100%;border-collapse:collapse;margin-top:10px}
+    .print-table th,.print-table td{border:1px solid #999;padding:5px 7px;text-align:left}
+    .print-table th{background:#f0f0f0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .print-table .r{text-align:right}
   }
 
   /* 記録リスト */
@@ -332,7 +323,7 @@
         <ol>
           <li>カレンダー同期：月のまとめの下の「カレンダー同期」カードで「今すぐ同期」を押すと、その月の勤務が予定ファイル（.ics）で書き出されます。開いてカレンダー「バイト」に追加してください</li>
           <li>PDF出力：月のまとめの「この月の一覧をPDFで出力」から印刷画面を開いて保存します</li>
-          <li>「書き出しに時給と給料を載せる」をオフにすると、CSV・PDFから時給・交通費・給料の欄が外れます（提出先に金額を見せたくないとき用）</li>
+          <li>「書き出しに時給と給料を載せる」をオフにすると、CSV・PDFから時給・概算給料の欄が外れます（提出先に金額を見せたくないとき用）。CSV・PDFの形式はzip版（バイト時間）と同じです</li>
         </ol>
 
         <h3>GitHub Pagesに置いて自分のURLで使う場合</h3>
@@ -438,6 +429,17 @@
     var h = Math.floor(min/60), m = min%60;
     if(h===0) return m+"分";
     return h+"時間"+(m? m+"分":"");
+  }
+  /* zip版の出力形式で使う表記（実働は 7:45 のような H:MM、金額は ¥なしの数字も使う） */
+  function fmtColonHM(min){
+    min = Math.max(0, Math.round(min));
+    return Math.floor(min/60) + ":" + pad(min%60);
+  }
+  function fmtYenPlain(n){ return Math.round(n).toLocaleString("ja-JP"); }
+  /* zip版はメモ欄が1つだけなので、場所とメモを1欄にまとめる（場所（メモ）） */
+  function memoTextOf(r){
+    if(r.place && r.memo) return r.place + "（" + r.memo + "）";
+    return r.place || r.memo || "";
   }
   function fmtHMS(ms){
     var s = Math.max(0, Math.floor(ms/1000));
@@ -798,32 +800,29 @@
     if(!recs.length){ toast("この月の記録がありません"); return; }
     var withPay = state.settings.includePayInExport !== false; // zip版の「書き出しに時給と概算給料を載せる」
     var lines = [];
-    var header = ["日付","曜日","出勤","退勤","休憩(分)","実働時間","実働(時間)","場所・勤務先","メモ"];
-    if(withPay) header.push("時給","交通費","給料");
+    var header = ["日付","曜日","出勤","退勤","休憩(分)","実働時間","メモ"];
+    if(withPay) header.push("時給","概算給料");
     lines.push(header.join(","));
-    var tMin=0, tTrans=0, tPay=0;
+    var tMin=0, tPay=0;
     recs.forEach(function(r){
       var d = new Date(r.date+"T00:00:00");
       var wm = workedMin(r), pay = payOf(r);
-      tMin += wm; tTrans += (r.transport||0); tPay += pay;
-      var row = [
-        r.date, DOW[d.getDay()], r.start, r.end, (r.breakMin||0),
-        fmtDur(wm), (wm/60).toFixed(2), csvCell(r.place), csvCell(r.memo)
-      ];
-      if(withPay) row.push((r.wage!=null? r.wage : state.settings.wage), (r.transport||0), pay);
+      tMin += wm; tPay += pay;
+      var row = [r.date, DOW[d.getDay()], r.start, r.end, (r.breakMin||0), fmtColonHM(wm), csvCell(memoTextOf(r))];
+      if(withPay) row.push((r.wage!=null? r.wage : state.settings.wage), pay);
       lines.push(row.join(","));
     });
-    var totRow = ["合計","","","","", fmtDur(tMin), (tMin/60).toFixed(2), "",""];
-    if(withPay) totRow.push("", tTrans, tPay);
+    var totRow = ["合計","","","","", fmtColonHM(tMin), ""];
+    if(withPay) totRow.push("", tPay);
     lines.push(totRow.join(","));
     var csv = "\uFEFF" + lines.join("\r\n");
     var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "勤務記録_"+viewY+"年"+(viewM+1)+"月.csv";
+    a.download = "バイト時間_"+viewY+"年"+(viewM+1)+"月.csv";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
-    toast((viewM+1)+"月の一覧をCSVで出力しました");
+    toast("CSVを書き出しました");
   });
 
   /* ---------- PDF出力（印刷レイアウト経由） ---------- */
@@ -835,61 +834,28 @@
   function updatePrintArea(){
     var area = $("printArea"); if(!area) return;
     var recs = sortedMonthAsc();
-    var title = "勤務記録 "+viewY+"年"+(viewM+1)+"月";
-    if(!recs.length){
-      area.innerHTML = "<h1>"+esc(title)+"</h1>"+'<p class="p-meta">この月の記録はありません。</p>';
-      return;
-    }
-    var days = {}; var tMin=0, tBreak=0, tTrans=0, tPay=0;
-    recs.forEach(function(r){
-      days[r.date]=1; tMin += workedMin(r); tBreak += (r.breakMin||0); tTrans += (r.transport||0); tPay += payOf(r);
-    });
-    var dayCount = Object.keys(days).length;
     var withPay = state.settings.includePayInExport !== false; // zip版の「書き出しに時給と概算給料を載せる」
-    var today = new Date();
-    var html = "<h1>"+esc(title)+"</h1>";
-    html += '<p class="p-meta">出力日：'+today.getFullYear()+"年"+(today.getMonth()+1)+"月"+today.getDate()+"日"+(withPay ? " ／ 給料 ＝ 実働時間 × 時給 ＋ 交通費（割増なし）" : "")+"</p>";
-    html += '<div class="print-summary">'
-      + "<div><span>勤務日数</span><b>"+dayCount+"日</b></div>"
-      + "<div><span>勤務回数</span><b>"+recs.length+"回</b></div>"
-      + "<div><span>実働時間（合計）</span><b>"+esc(fmtDur(tMin))+"</b></div>"
-      + (withPay ? "<div><span>給料見込み（合計）</span><b>"+esc(fmtYen(tPay))+"</b></div>" : "")
-      + "</div>";
-    html += '<table class="print-table"><thead><tr>'
-      + "<th>日付</th><th>曜日</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働時間</th><th>場所・勤務先</th><th>メモ</th>"
-      + (withPay ? "<th>時給</th><th>交通費</th><th>給料</th>" : "")
-      + "</tr></thead><tbody>";
-    recs.forEach(function(r){
-      var d = new Date(r.date+"T00:00:00");
+    var tMin = 0, tPay = 0;
+    var rows = recs.map(function(r){
+      var dt = new Date(r.date + "T00:00:00");
       var wm = workedMin(r);
-      var wage = (r.wage!=null? r.wage : state.settings.wage) || 0;
-      html += "<tr>"
-        + '<td class="center">'+esc(r.date)+"</td>"
-        + '<td class="center">'+esc(DOW[d.getDay()])+"</td>"
-        + '<td class="center">'+esc(r.start)+"</td>"
-        + '<td class="center">'+esc(r.end)+"</td>"
-        + '<td class="center">'+(r.breakMin||0)+"分</td>"
-        + '<td class="center">'+esc(fmtDur(wm))+"</td>"
-        + "<td>"+esc(r.place||"")+"</td>"
-        + "<td>"+esc(r.memo||"")+"</td>"
-        + (withPay ?
-            '<td class="num">'+esc(fmtYen(wage))+"</td>"
-          + '<td class="num">'+esc(fmtYen(r.transport||0))+"</td>"
-          + '<td class="num">'+esc(fmtYen(payOf(r)))+"</td>" : "")
+      var w = (r.wage != null ? r.wage : state.settings.wage) || 0;
+      var p = payOf(r);
+      tMin += wm; tPay += p;
+      return "<tr><td>" + esc(r.date) + " (" + DOW[dt.getDay()] + ")</td>"
+        + "<td>" + esc(r.start) + " → " + esc(r.end) + "</td>"
+        + "<td>" + (r.breakMin || 0) + "分</td>"
+        + "<td>" + fmtColonHM(wm) + "</td>"
+        + "<td>" + esc(memoTextOf(r)) + "</td>"
+        + (withPay ? "<td class='r'>¥" + fmtYenPlain(w) + "</td><td class='r'>¥" + fmtYenPlain(p) + "</td>" : "")
         + "</tr>";
-    });
-    html += "</tbody><tfoot><tr>"
-      + '<td colspan="4">合計（'+dayCount+"日 ／ "+recs.length+'勤務）</td>'
-      + '<td class="center">'+tBreak+'分</td>'
-      + '<td class="center">'+esc(fmtDur(tMin))+"</td>"
-      + (withPay ?
-          '<td colspan="3"></td>'
-        + '<td class="num">'+esc(fmtYen(tTrans))+"</td>"
-        + '<td class="num">'+esc(fmtYen(tPay))+"</td>"
-        : '<td colspan="2"></td>')
-      + "</tr></tfoot></table>";
-    html += '<p class="print-note">休憩が空白で保存された勤務は0分として計算しています。</p>';
-    area.innerHTML = html;
+    }).join("");
+
+    area.innerHTML = "<h1>バイト時間 " + viewY + "年" + (viewM + 1) + "月</h1>"
+      + "<div>合計実働：" + fmtColonHM(tMin) + "時間" + (withPay ? " ／ 概算給料：約" + fmtYenPlain(tPay) + "円" : "") + "</div>"
+      + "<table class='print-table'><thead><tr><th>日付</th><th>出勤→退勤</th><th>休憩</th><th>実働</th><th>メモ</th>"
+      + (withPay ? "<th>時給</th><th>概算</th>" : "")
+      + "</tr></thead><tbody>" + rows + "</tbody></table>";
   }
   if($("pdfBtn")){
     $("pdfBtn").addEventListener("click", function(){
@@ -910,23 +876,16 @@
       // 印刷用HTMLを作って新しいタブで開く（開いたページで自動的に印刷画面が出る）
       var printHtml = "<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\">"
         + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-        + "<title>勤務記録（印刷）</title><style>"
+        + "<title>バイト時間（印刷）</title><style>"
         + "@page{size:A4 landscape;margin:12mm}"
-        + "body{font-family:-apple-system,'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif;color:#000;background:#fff;font-size:12px;line-height:1.45;margin:0;padding:12px}"
-        + "h1{font-size:20px;margin:0 0 4px;letter-spacing:.02em}.p-meta{font-size:11px;color:#444;margin:0 0 10px}"
-        + ".print-summary{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}"
-        + ".print-summary div{border:1px solid #bbb;border-radius:8px;padding:8px 12px;min-width:150px}"
-        + ".print-summary span{display:block;font-size:11px;color:#555;font-weight:700}"
-        + ".print-summary b{font-size:16px;font-variant-numeric:tabular-nums}"
-        + ".print-table{width:100%;border-collapse:collapse;table-layout:auto}"
-        + ".print-table th,.print-table td{border:1px solid #999;padding:5px 6px;vertical-align:top;word-break:break-word}"
-        + ".print-table th{background:#eef4f2;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:11px;text-align:left;white-space:nowrap}"
-        + ".print-table td{font-size:11.5px}"
-        + ".print-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}"
-        + ".print-table .center{text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums}"
-        + ".print-table tfoot td{font-weight:800;background:#f7f7f7;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-        + ".print-note{font-size:10.5px;color:#555;margin-top:10px}"
+        + "body{font-family:-apple-system,'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif;color:#000;background:#fff;font-size:12px;margin:0;padding:12px}"
+        + "h1{font-size:19px;margin:0 0 6px}"
+        + ".print-table{width:100%;border-collapse:collapse;margin-top:10px}"
+        + ".print-table th,.print-table td{border:1px solid #999;padding:5px 7px;text-align:left}"
+        + ".print-table th{background:#f0f0f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+        + ".print-table .r{text-align:right}"
         + ".print-tip{font-size:11px;color:#666;margin-top:14px}"
+        + "@media print{body{padding:0}.print-tip{display:none}}"
         + "</style></head><body>" + $("printArea").innerHTML
         + "<p class=\"print-tip\">印刷画面が出ない場合は、ブラウザの共有メニューから「印刷」を選んでください。PDFとして保存できます。</p>"
         + "<script>window.onload=function(){setTimeout(function(){try{window.print()}catch(e){}},150)}<\/script>"
@@ -941,7 +900,7 @@
         // 新しいタブが開けない場合（ポップアップブロック等）は印刷用HTMLをダウンロード
         var a = document.createElement("a");
         a.href = url;
-        a.download = "勤務記録_" + viewY + "年" + (viewM+1) + "月.html";
+        a.download = "バイト時間_" + viewY + "年" + (viewM+1) + "月.html";
         document.body.appendChild(a); a.click(); a.remove();
         toast("印刷用ファイルをダウンロードしました。開いて印刷してください");
       }else{
