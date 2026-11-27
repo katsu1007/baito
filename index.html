@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="バイト勤務記録" />
 <meta name="application-name" content="バイト勤務記録" />
-<meta name="description" content="バイトの出勤・退勤・休憩を記録して、実働時間と給料（実働時間×時給＋交通費）を自動計算する勤務記録アプリ" />
+<meta name="description" content="バイトの出勤・退勤・休憩を記録して、実働時間と給料（実働時間×時給＋交通費）を自動計算し、CSV/PDF書き出しとICSカレンダー連携ができる勤務記録アプリ" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f766e'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='white' stroke-width='7'/%3E%3Cpath d='M50 34v17l12 8' fill='none' stroke='white' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f766e'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='white' stroke-width='7'/%3E%3Cpath d='M50 34v17l12 8' fill='none' stroke='white' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <link rel="manifest" href='data:application/manifest+json,{"name":"バイト勤務記録","short_name":"勤務記録","display":"standalone","start_url":".","background_color":"%23f4f6f5","theme_color":"%230f766e","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%230f766e%27/%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2730%27 fill=%27none%27 stroke=%27white%27 stroke-width=%277%27/%3E%3Cpath d=%27M50 34v17l12 8%27 fill=%27none%27 stroke=%27white%27 stroke-width=%277%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml"}]}' />
@@ -113,6 +113,13 @@
   .stat .sub{display:block;font-size:11px;color:var(--muted);font-weight:600}
   .csvrow{margin-top:14px;display:flex;flex-direction:column;gap:10px}
   .csvrow .btn{width:100%}
+  /* 書き出しオプション／カレンダー同期のオン・オフ（zip版から取り込み） */
+  .toggle-row{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:none;padding:6px 0;
+    font-size:14px;font-weight:700;color:var(--ink);text-align:left}
+  .chk-box{width:24px;height:24px;border-radius:7px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;
+    display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex:none;line-height:1}
+  .chk-box.off{background:var(--card);border-color:var(--line);color:transparent}
+  .cal-desc{font-size:12.5px;color:var(--muted);margin:10px 0 0;line-height:1.6}
   /* 数字入力：ステッパーを消してタイピング専用に見せる（キーボードは inputmode で数字に） */
   input[type="number"]{-moz-appearance:textfield;appearance:textfield}
   input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -264,6 +271,10 @@
       <div class="stat"><span>実働時間</span><b id="statHours">0時間</b><span class="sub" id="statHoursSub"></span></div>
       <div class="stat"><span>給料見込み</span><b class="money" id="statPay">¥0</b></div>
     </div>
+    <button class="toggle-row" id="includePayToggle" type="button" aria-pressed="true">
+      <span class="chk-box" id="includePayBox">✓</span>
+      <span>書き出しに時給と給料を載せる</span>
+    </button>
     <div class="csvrow">
       <button class="btn" id="csvBtn" type="button">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
@@ -275,6 +286,20 @@
       </button>
       <p class="setnote" style="margin:0">PDFボタンを押すと印刷画面が開きます（ホーム画面アプリからは新しいタブが開きます）。iPhoneでは印刷画面をピンチアウト（広げる）するか、共有ボタンから「PDFとして保存／ファイルに保存」を選んでください。</p>
     </div>
+  </section>
+
+  <!-- カレンダー同期（iOSカレンダー／ICS連携、zip版から取り込み） -->
+  <section class="card" aria-label="カレンダー同期">
+    <h2>カレンダー同期</h2>
+    <button class="toggle-row" id="calSyncToggle" type="button" aria-pressed="true">
+      <span class="chk-box" id="calSyncBox">✓</span>
+      <span>iPhoneのカレンダー「バイト」と同期する</span>
+    </button>
+    <button class="btn" id="calSyncNowBtn" type="button" style="width:100%;margin-top:8px">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      今すぐ同期（表示中の月）
+    </button>
+    <p class="cal-desc">「今すぐ同期」で、表示中の月の勤務をカレンダー「バイト」向けの予定ファイル（.ics）として書き出します。書き出したファイルを開くと、iPhoneのカレンダーに追加できます（カレンダー名「バイト」を選んでください）。Webブラウザ単体ではiOSカレンダーへの直接書き込み権限がないため、.icsファイル経由の追加になります。同じ記録を再度書き出しても、予定が二重に増えないよう記録ごとのIDを引き継いでいます。夜勤など退勤が翌日になる勤務は、翌日の退勤時刻で予定を作ります。</p>
   </section>
 
   <!-- 記録一覧 -->
@@ -302,6 +327,13 @@
           <li>「ホーム画面に追加」を選んで「追加」</li>
         </ol>
         <p>追加後はアプリのように全画面で開けます。記録はこの端末の中（ブラウザの保存領域）に残ります。</p>
+
+        <h3>カレンダー同期とPDF出力</h3>
+        <ol>
+          <li>カレンダー同期：月のまとめの下の「カレンダー同期」カードで「今すぐ同期」を押すと、その月の勤務が予定ファイル（.ics）で書き出されます。開いてカレンダー「バイト」に追加してください</li>
+          <li>PDF出力：月のまとめの「この月の一覧をPDFで出力」から印刷画面を開いて保存します</li>
+          <li>「書き出しに時給と給料を載せる」をオフにすると、CSV・PDFから時給・交通費・給料の欄が外れます（提出先に金額を見せたくないとき用）</li>
+        </ol>
 
         <h3>GitHub Pagesに置いて自分のURLで使う場合</h3>
         <ol>
@@ -415,7 +447,7 @@
   function uid(){ return "r"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
   /* ---------- 状態 ---------- */
-  var state = { settings:{ wage:1000, transport:0, lastPlace:"" }, records:[], current:null };
+  var state = { settings:{ wage:1000, transport:0, lastPlace:"", includePayInExport:true, calSyncEnabled:true }, records:[], current:null };
   try{
     var raw = localStorage.getItem(LS_KEY);
     if(raw){
@@ -585,7 +617,27 @@
   function renderSettings(){
     if(document.activeElement !== $("wageInput")) $("wageInput").value = state.settings.wage;
     if(document.activeElement !== $("transportInput")) $("transportInput").value = state.settings.transport;
+    renderToggles();
   }
+  /* ---------- 書き出しオプション／カレンダー同期のオン・オフ（zip版から取り込み） ---------- */
+  function renderToggles(){
+    var withPay = state.settings.includePayInExport !== false;
+    $("includePayBox").classList.toggle("off", !withPay);
+    $("includePayToggle").setAttribute("aria-pressed", withPay ? "true" : "false");
+    var calOn = state.settings.calSyncEnabled !== false;
+    $("calSyncBox").classList.toggle("off", !calOn);
+    $("calSyncToggle").setAttribute("aria-pressed", calOn ? "true" : "false");
+  }
+  $("includePayToggle").addEventListener("click", function(){
+    state.settings.includePayInExport = !(state.settings.includePayInExport !== false);
+    save(); renderToggles(); updatePrintArea();
+    toast(state.settings.includePayInExport ? "書き出しに時給と給料を載せます" : "書き出しから時給と給料を外します");
+  });
+  $("calSyncToggle").addEventListener("click", function(){
+    state.settings.calSyncEnabled = !(state.settings.calSyncEnabled !== false);
+    save(); renderToggles();
+    toast(state.settings.calSyncEnabled ? "カレンダー同期をオンにしました" : "カレンダー同期をオフにしました");
+  });
   function onSettingChange(){
     var w = parseInt($("wageInput").value,10), t = parseInt($("transportInput").value,10);
     state.settings.wage = isNaN(w)? 0 : Math.max(0,w);
@@ -744,20 +796,26 @@
     var recs = state.records.filter(function(r){ return r.date.indexOf(key)===0; })
       .sort(function(a,b){ return (a.date+a.start) < (b.date+b.start) ? -1 : 1; });
     if(!recs.length){ toast("この月の記録がありません"); return; }
+    var withPay = state.settings.includePayInExport !== false; // zip版の「書き出しに時給と概算給料を載せる」
     var lines = [];
-    lines.push(["日付","曜日","出勤","退勤","休憩(分)","実働時間","実働(時間)","場所・勤務先","メモ","時給","交通費","給料"].join(","));
+    var header = ["日付","曜日","出勤","退勤","休憩(分)","実働時間","実働(時間)","場所・勤務先","メモ"];
+    if(withPay) header.push("時給","交通費","給料");
+    lines.push(header.join(","));
     var tMin=0, tTrans=0, tPay=0;
     recs.forEach(function(r){
       var d = new Date(r.date+"T00:00:00");
       var wm = workedMin(r), pay = payOf(r);
       tMin += wm; tTrans += (r.transport||0); tPay += pay;
-      lines.push([
+      var row = [
         r.date, DOW[d.getDay()], r.start, r.end, (r.breakMin||0),
-        fmtDur(wm), (wm/60).toFixed(2), csvCell(r.place), csvCell(r.memo),
-        (r.wage!=null? r.wage : state.settings.wage), (r.transport||0), pay
-      ].join(","));
+        fmtDur(wm), (wm/60).toFixed(2), csvCell(r.place), csvCell(r.memo)
+      ];
+      if(withPay) row.push((r.wage!=null? r.wage : state.settings.wage), (r.transport||0), pay);
+      lines.push(row.join(","));
     });
-    lines.push(["合計","","","","", fmtDur(tMin), (tMin/60).toFixed(2), "","","", tTrans, tPay].join(","));
+    var totRow = ["合計","","","","", fmtDur(tMin), (tMin/60).toFixed(2), "",""];
+    if(withPay) totRow.push("", tTrans, tPay);
+    lines.push(totRow.join(","));
     var csv = "\uFEFF" + lines.join("\r\n");
     var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
     var a = document.createElement("a");
@@ -787,17 +845,19 @@
       days[r.date]=1; tMin += workedMin(r); tBreak += (r.breakMin||0); tTrans += (r.transport||0); tPay += payOf(r);
     });
     var dayCount = Object.keys(days).length;
+    var withPay = state.settings.includePayInExport !== false; // zip版の「書き出しに時給と概算給料を載せる」
     var today = new Date();
     var html = "<h1>"+esc(title)+"</h1>";
-    html += '<p class="p-meta">出力日：'+today.getFullYear()+"年"+(today.getMonth()+1)+"月"+today.getDate()+"日 ／ 給料 ＝ 実働時間 × 時給 ＋ 交通費（割増なし）</p>";
+    html += '<p class="p-meta">出力日：'+today.getFullYear()+"年"+(today.getMonth()+1)+"月"+today.getDate()+"日"+(withPay ? " ／ 給料 ＝ 実働時間 × 時給 ＋ 交通費（割増なし）" : "")+"</p>";
     html += '<div class="print-summary">'
       + "<div><span>勤務日数</span><b>"+dayCount+"日</b></div>"
       + "<div><span>勤務回数</span><b>"+recs.length+"回</b></div>"
       + "<div><span>実働時間（合計）</span><b>"+esc(fmtDur(tMin))+"</b></div>"
-      + "<div><span>給料見込み（合計）</span><b>"+esc(fmtYen(tPay))+"</b></div>"
+      + (withPay ? "<div><span>給料見込み（合計）</span><b>"+esc(fmtYen(tPay))+"</b></div>" : "")
       + "</div>";
     html += '<table class="print-table"><thead><tr>'
-      + "<th>日付</th><th>曜日</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働時間</th><th>場所・勤務先</th><th>メモ</th><th>時給</th><th>交通費</th><th>給料</th>"
+      + "<th>日付</th><th>曜日</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働時間</th><th>場所・勤務先</th><th>メモ</th>"
+      + (withPay ? "<th>時給</th><th>交通費</th><th>給料</th>" : "")
       + "</tr></thead><tbody>";
     recs.forEach(function(r){
       var d = new Date(r.date+"T00:00:00");
@@ -812,18 +872,21 @@
         + '<td class="center">'+esc(fmtDur(wm))+"</td>"
         + "<td>"+esc(r.place||"")+"</td>"
         + "<td>"+esc(r.memo||"")+"</td>"
-        + '<td class="num">'+esc(fmtYen(wage))+"</td>"
-        + '<td class="num">'+esc(fmtYen(r.transport||0))+"</td>"
-        + '<td class="num">'+esc(fmtYen(payOf(r)))+"</td>"
+        + (withPay ?
+            '<td class="num">'+esc(fmtYen(wage))+"</td>"
+          + '<td class="num">'+esc(fmtYen(r.transport||0))+"</td>"
+          + '<td class="num">'+esc(fmtYen(payOf(r)))+"</td>" : "")
         + "</tr>";
     });
     html += "</tbody><tfoot><tr>"
       + '<td colspan="4">合計（'+dayCount+"日 ／ "+recs.length+'勤務）</td>'
       + '<td class="center">'+tBreak+'分</td>'
       + '<td class="center">'+esc(fmtDur(tMin))+"</td>"
-      + '<td colspan="3"></td>'
-      + '<td class="num">'+esc(fmtYen(tTrans))+"</td>"
-      + '<td class="num">'+esc(fmtYen(tPay))+"</td>"
+      + (withPay ?
+          '<td colspan="3"></td>'
+        + '<td class="num">'+esc(fmtYen(tTrans))+"</td>"
+        + '<td class="num">'+esc(fmtYen(tPay))+"</td>"
+        : '<td colspan="2"></td>')
       + "</tr></tfoot></table>";
     html += '<p class="print-note">休憩が空白で保存された勤務は0分として計算しています。</p>';
     area.innerHTML = html;
@@ -888,6 +951,69 @@
     });
   }
   window.addEventListener("beforeprint", function(){ updatePrintArea(); });
+
+  /* ---------- カレンダー同期（.ics書き出し、zip版から取り込み） ---------- */
+  function icsEscape(s){
+    return String(s==null?"":s)
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r\n|\r|\n/g, "\\n");
+  }
+  function icsDateOf(dateStr, addDays){
+    var p = dateStr.split("-");
+    var d = new Date(+p[0], (+p[1])-1, +p[2] + (addDays||0));
+    return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());
+  }
+  function buildICS(recs){
+    var nowD = new Date();
+    var stamp = nowD.getUTCFullYear()+pad(nowD.getUTCMonth()+1)+pad(nowD.getUTCDate())
+      +"T"+pad(nowD.getUTCHours())+pad(nowD.getUTCMinutes())+pad(nowD.getUTCSeconds())+"Z";
+    var lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Baito Kinmu Kiroku//JP",
+      "CALSCALE:GREGORIAN",
+      "X-WR-CALNAME:バイト"
+    ];
+    recs.forEach(function(r){
+      var sMin = (+r.start.split(":")[0])*60 + (+r.start.split(":")[1]);
+      var eMin = (+r.end.split(":")[0])*60 + (+r.end.split(":")[1]);
+      // 退勤が出勤より早い時刻なら翌日まで働いたものとして、終了日を翌日にする（HTML版の実働計算と同じ扱い）
+      var endDate = icsDateOf(r.date, eMin < sMin ? 1 : 0);
+      var desc = "実働 "+fmtDur(workedMin(r))+"／休憩 "+(r.breakMin||0)+"分";
+      if(state.settings.includePayInExport !== false) desc += "／給料 "+fmtYen(payOf(r));
+      if(r.memo) desc += "\nメモ："+r.memo;
+      lines.push("BEGIN:VEVENT");
+      lines.push("UID:" + r.id + "@baito-jikan"); // zip版と同じID形式（再取り込みで二重登録を防ぐ）
+      lines.push("DTSTAMP:" + stamp);
+      lines.push("DTSTART:" + icsDateOf(r.date, 0) + "T" + r.start.replace(":", "") + "00");
+      lines.push("DTEND:" + endDate + "T" + r.end.replace(":", "") + "00");
+      lines.push("SUMMARY:" + icsEscape("バイト" + (r.place ? "（" + r.place + "）" : "")));
+      if(r.place) lines.push("LOCATION:" + icsEscape(r.place));
+      lines.push("DESCRIPTION:" + icsEscape(desc));
+      lines.push("END:VEVENT");
+    });
+    lines.push("END:VCALENDAR");
+    return lines.join("\r\n") + "\r\n";
+  }
+  if($("calSyncNowBtn")){
+    $("calSyncNowBtn").addEventListener("click", function(){
+      if(state.settings.calSyncEnabled === false){
+        toast("カレンダー同期がオフになっています（上のチェックでオンにできます）");
+        return;
+      }
+      var recs = sortedMonthAsc();
+      if(!recs.length){ toast("同期する勤務記録がありません"); return; }
+      var blob = new Blob([buildICS(recs)], {type:"text/calendar;charset=utf-8"});
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "バイト_" + viewY + "_" + pad(viewM + 1) + ".ics";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+      toast("カレンダー予定（.ics）を書き出しました。開いてカレンダー「バイト」に追加してください");
+    });
+  }
 
   /* ---------- 最新版に更新（キャッシュを避けて取り直す） ---------- */
   /* 保存先（LS_KEY = baito-kinmu-kiroku-v1）は変更しない。再読み込みしても記録はそのまま残る */
