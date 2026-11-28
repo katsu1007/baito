@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<meta name="theme-color" content="#14141c" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="バイト時間" />
+<meta name="application-name" content="バイト時間" />
+<meta name="description" content="バイトの勤務時間をテンキーや現在時刻打刻で記録し、実働時間・概算給料・CSV/PDF書き出し・ICSカレンダー連携を行うアプリ" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d1d29'/%3E%3Crect x='22' y='28' width='56' height='44' rx='10' fill='none' stroke='%23f28c4b' stroke-width='7'/%3E%3Cpath d='M34 50h32M50 38v24' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d1d29'/%3E%3Crect x='22' y='28' width='56' height='44' rx='10' fill='none' stroke='%23f28c4b' stroke-width='7'/%3E%3Cpath d='M34 50h32M50 38v24' stroke='%23ffffff' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="manifest" href="manifest.webmanifest" />
+<title>バイト時間</title>
+<style>
+  :root{
+    --bg:#14141c;
+    --panel:#1c1c26;
+    --panel-2:#232330;
+    --line:#2f2f3f;
+    --ink:#f3f3f8;
+    --muted:#9696a8;
+    --accent:#f28c4b;
+    --accent-2:#e07634;
+    --accent-ink:#ffffff;
+    --accent-soft:rgba(242,140,75,.16);
+    --danger:#ef5350;
+    --success:#4ade80;
+    --radius:16px;
+    --radius-sm:12px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+    line-height:1.5;
+    padding:0 0 calc(56px + env(safe-area-inset-bottom));
+    font-variant-numeric:tabular-nums;
+  }
+  button,[role="button"],input{font:inherit;color:var(--ink)}
+  button{cursor:pointer}
+  input[type="number"]{-moz-appearance:textfield;appearance:textfield}
+  input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+  .wrap{max-width:520px;margin:0 auto;padding:12px 14px 0}
+
+  /* トップ月ヘッダー（画像1・2・3上部の < 2026年11月 > 合計 31:58時間 ） */
+  .top-monthbar{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:calc(4px + env(safe-area-inset-top)) 0 14px;position:sticky;top:0;z-index:20;
+    background:rgba(20,20,28,.92);backdrop-filter:blur(10px);
+  }
+  .m-nav{display:flex;align-items:center;gap:10px}
+  .m-btn{
+    width:38px;height:38px;border-radius:11px;
+    border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);font-size:18px;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .m-btn:disabled{opacity:.35;cursor:default}
+  .m-title{font-size:18px;font-weight:800;letter-spacing:.01em}
+  .m-total{text-align:right;line-height:1.15}
+  .m-total .lbl{font-size:11.5px;color:var(--muted);font-weight:700;margin-right:4px}
+  .m-total .val{font-size:21px;font-weight:900;color:var(--accent)}
+  .m-total .unit{font-size:12px;font-weight:800;color:var(--accent);margin-left:2px}
+
+  /* サマリーカード（出勤8日 平均4:00/日 / 時給 1500 円 / 約 47,950 円） */
+  .summary-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 16px 14px;margin-bottom:14px;
+  }
+  .sum-top{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding-bottom:14px;border-bottom:1px solid var(--line);
+    font-size:13.5px;color:var(--muted);font-weight:700;
+  }
+  .sum-top b{color:var(--ink)}
+  .sum-bottom{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding-top:14px;
+  }
+  .wage-box{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);font-weight:700}
+  .wage-input{
+    width:92px;height:40px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:16px;font-weight:800;
+    text-align:center;padding:0 8px;
+  }
+  .wage-input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+  .est-pay{font-size:18px;font-weight:900;color:var(--ink);white-space:nowrap}
+  .est-pay .approx{font-size:13px;color:var(--muted);font-weight:700;margin-right:2px}
+
+  /* 勤務を記録カード（画像1・3のメインパネル） */
+  .record-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px;
+  }
+  .rec-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+  .rec-card-title{font-size:15px;font-weight:800;margin:0}
+  .now-punch-group{display:flex;gap:6px}
+  .mini-pill{
+    height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:12px;font-weight:700;
+  }
+  .mini-pill.active-live{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+
+  .meta-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .field-lbl{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .meta-input{
+    width:100%;height:44px;border-radius:11px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:15px;font-weight:700;
+    padding:0 12px;
+  }
+  .meta-input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+
+  /* 出勤・退勤ディスプレイ */
+  .io-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .io-slot{
+    background:var(--panel-2);border:1.5px solid var(--line);border-radius:13px;
+    padding:12px 10px;text-align:center;transition:border-color .15s, background .15s;
+  }
+  .io-slot.active{
+    border-color:var(--accent);
+    background:rgba(242,140,75,.08);
+  }
+  .io-val{font-size:28px;font-weight:900;letter-spacing:.04em;line-height:1.2}
+  .io-val.empty{color:var(--muted)}
+
+  /* テンキー（画像1の 1〜9, C, 0, backspace） */
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+  .key-btn{
+    height:52px;border-radius:12px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:20px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+    user-select:none;-webkit-tap-highlight-color:transparent;
+  }
+  .key-btn:active{background:#2d2d3d;transform:scale(.98)}
+  .key-btn.sub{color:var(--muted);font-size:17px}
+
+  /* 前回と同じ ＋ 記録する（オレンジボタン） */
+  .action-row{display:grid;grid-template-columns:130px 1fr;gap:10px;margin-bottom:16px}
+  .same-btn{
+    height:52px;border-radius:12px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:14px;font-weight:800;
+  }
+  .submit-btn{
+    height:52px;border-radius:12px;border:none;
+    background:var(--accent);color:var(--accent-ink);font-size:16px;font-weight:900;
+    letter-spacing:.02em;
+  }
+  .submit-btn:active{background:var(--accent-2)}
+
+  /* 休憩セレクタ（画像3の なし / 15分 / 30分 / 45分 / 1時間 ） */
+  .break-sec{margin-bottom:12px}
+  .break-lbl{font-size:12.5px;color:var(--muted);font-weight:700;margin-bottom:8px}
+  .break-pills{display:flex;flex-wrap:wrap;gap:8px}
+  .br-pill{
+    height:36px;padding:0 13px;border-radius:999px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:13px;font-weight:700;
+  }
+  .br-pill.active{
+    background:var(--accent);border-color:var(--accent);color:#fff;font-weight:800;
+  }
+
+  .calc-preview{font-size:13.5px;color:var(--ink);font-weight:700;margin:8px 0 4px}
+  .help-note{font-size:12px;color:var(--muted);line-height:1.55;margin:0}
+
+  /* 書き出しカード（画像3の CSVで書き出す / PDFで書き出す（印刷用）） */
+  .export-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;margin-bottom:14px;
+  }
+  .chk-row{
+    display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:700;
+    margin-bottom:12px;cursor:pointer;
+  }
+  .chk-box{
+    width:22px;height:22px;border-radius:6px;border:1.5px solid var(--accent);
+    background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:900;flex:none;
+  }
+  .chk-box.off{background:var(--panel-2);border-color:var(--line);color:transparent}
+  .exp-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .exp-btn{
+    height:44px;border-radius:11px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:13px;font-weight:800;
+    padding:0 10px;
+  }
+
+  /* 記録リスト（画像2・3の 11/2 月 19:15 -> 23:35  -  4:20 × ） */
+  .list-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:6px 14px;margin-bottom:14px;
+  }
+  .list-head{
+    display:grid;grid-template-columns:56px 1fr 44px 62px 28px;
+    gap:6px;padding:10px 0 8px;border-bottom:1px solid var(--line);
+    font-size:12px;color:var(--muted);font-weight:700;align-items:center;
+  }
+  .list-head .r{text-align:right}
+  .list-head .c{text-align:center}
+
+  .rec-item{
+    display:grid;grid-template-columns:56px 1fr 44px 62px 28px;
+    gap:6px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06);
+    align-items:center;cursor:pointer;
+  }
+  .rec-item:last-child{border-bottom:none}
+  .rec-d{line-height:1.2}
+  .rec-d .md{font-size:14px;font-weight:800;display:block}
+  .rec-d .w{font-size:12px;color:var(--muted);font-weight:700;display:block;margin-top:2px}
+  .rec-d.sun .w{color:var(--danger)}
+  .rec-d.sat .w{color:#60a5fa}
+  .rec-mid{min-width:0}
+  .rec-t{font-size:14px;font-weight:800}
+  .rec-t .arr{color:var(--muted);margin:0 3px}
+  .rec-memo{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rec-br{text-align:center;font-size:13px;color:var(--muted);font-weight:700}
+  .rec-dur{text-align:right;font-size:15px;font-weight:900}
+  .rec-del{
+    width:28px;height:28px;border:none;background:transparent;color:var(--muted);
+    font-size:16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;
+    border-radius:8px;
+  }
+  .rec-del:hover{color:var(--danger);background:rgba(239,83,80,.12)}
+  .empty-list{padding:26px 10px;text-align:center;color:var(--muted);font-size:13.5px}
+
+  /* iPhoneカレンダー同期カード（画像2下部） */
+  .cal-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px;
+  }
+  .cal-sync-btn{
+    height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--ink);font-size:13px;font-weight:800;
+    margin-bottom:12px;
+  }
+  .cal-desc{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0}
+
+  .footer-note{
+    text-align:center;font-size:12.5px;color:var(--muted);
+    padding:8px 0 12px;
+  }
+  .footer-links{display:flex;justify-content:center;gap:14px;margin-top:6px}
+  .footer-link{
+    background:none;border:none;color:var(--muted);font-size:11.5px;
+    text-decoration:underline;padding:2px 4px;
+  }
+
+  /* 印刷／PDF用 */
+  .print-only{display:none}
+  @page{size:A4 landscape;margin:12mm}
+  @media print{
+    body{background:#fff!important;color:#000!important;padding:0!important}
+    .wrap,.overlay,.toast{display:none!important}
+    .print-only{display:block!important;color:#1c2033;background:#fff;font-size:12px}
+    .print-only h1{font-size:19px;margin:0 0 10px}
+    .print-table{width:100%;border-collapse:collapse}
+    .print-table th,.print-table td{border:1px solid #b9bdcc;padding:5px 7px;text-align:left}
+    .print-table th{background:#e9ecf5!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .print-table .r{text-align:right}
+    .print-sum{width:70%;margin:12px 0 0 auto;border-collapse:collapse}
+    .print-sum td{border-bottom:1px solid #b9bdcc;padding:5px 7px}
+    .print-sum td.r{text-align:right;white-space:nowrap}
+    .print-sum .big td{font-size:15px;font-weight:800}
+  }
+
+  /* 編集モーダル */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:440px;padding:18px}
+  .modal h3{margin:0 0 14px;font-size:16px}
+  .m-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .m-grid .full{grid-column:1/-1}
+  .m-btns{display:flex;gap:10px;margin-top:16px}
+  .m-btns button{flex:1;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);font-weight:800}
+  .m-btns .save{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));
+    transform:translate(-50%,80px);background:#262634;color:#fff;border:1px solid var(--line);
+    padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:700;
+    opacity:0;transition:all .22s;pointer-events:none;z-index:90;max-width:92vw;text-align:center;
+  }
+  .toast.show{transform:translate(-50%,0);opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- トップ月ナビ＆合計時間 -->
+  <header class="top-monthbar">
+    <div class="m-nav">
+      <button type="button" class="m-btn" id="prevMonth" aria-label="前の月">‹</button>
+      <div class="m-title" id="monthLabel">2026年11月</div>
+      <button type="button" class="m-btn" id="nextMonth" aria-label="次の月">›</button>
+    </div>
+    <div class="m-total">
+      <span class="lbl">合計</span>
+      <span class="val" id="totalHM">0:00</span>
+      <span class="unit">時間</span>
+    </div>
+  </header>
+
+  <!-- 出勤日数・平均・時給・概算給料カード -->
+  <section class="summary-card" aria-label="月間サマリーと時給">
+    <div class="sum-top">
+      <div>出勤 <b id="statDays">0</b> 日</div>
+      <div>平均 <b id="statAvg">0:00</b>/日</div>
+    </div>
+    <div class="sum-bottom">
+      <div class="wage-box">
+        <span>時給</span>
+        <input type="number" inputmode="numeric" pattern="[0-9]*" class="wage-input" id="wageInput" value="1500" min="0" step="1" aria-label="時給" />
+        <span>円</span>
+      </div>
+      <div class="est-pay">
+        <span class="approx">約</span>
+        <span id="estPay">0</span>
+        <span>円</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 勤務を記録カード（出勤・退勤打刻 ＋ テンキー ＋ 休憩選択） -->
+  <section class="record-card" aria-label="勤務を記録">
+    <div class="rec-card-head">
+      <h2 class="rec-card-title">勤務を記録</h2>
+      <div class="now-punch-group">
+        <button type="button" class="mini-pill" id="punchNowIn">今すぐ出勤</button>
+        <button type="button" class="mini-pill" id="punchNowOut">今すぐ退勤</button>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <div>
+        <label class="field-lbl" for="dateInput">日付（出勤した日）</label>
+        <input type="text" class="meta-input" id="dateInput" placeholder="R8/11/20" autocomplete="off" />
+      </div>
+      <div>
+        <label class="field-lbl" for="memoInput">メモ（場所など）</label>
+        <input type="text" class="meta-input" id="memoInput" placeholder="例）〇〇ビル" autocomplete="off" />
+      </div>
+    </div>
+
+    <div class="io-grid">
+      <div>
+        <div class="field-lbl">出勤</div>
+        <div class="io-slot active" id="slotIn" role="button" tabindex="0">
+          <div class="io-val empty" id="valIn">--:--</div>
+        </div>
+      </div>
+      <div>
+        <div class="field-lbl">退勤</div>
+        <div class="io-slot" id="slotOut" role="button" tabindex="0">
+          <div class="io-val empty" id="valOut">--:--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- テンキー -->
+    <div class="keypad" id="keypad" aria-label="数字キーパッド">
+      <button type="button" class="key-btn" data-k="1">1</button>
+      <button type="button" class="key-btn" data-k="2">2</button>
+      <button type="button" class="key-btn" data-k="3">3</button>
+      <button type="button" class="key-btn" data-k="4">4</button>
+      <button type="button" class="key-btn" data-k="5">5</button>
+      <button type="button" class="key-btn" data-k="6">6</button>
+      <button type="button" class="key-btn" data-k="7">7</button>
+      <button type="button" class="key-btn" data-k="8">8</button>
+      <button type="button" class="key-btn" data-k="9">9</button>
+      <button type="button" class="key-btn sub" data-k="C">C</button>
+      <button type="button" class="key-btn" data-k="0">0</button>
+      <button type="button" class="key-btn sub" data-k="BS" aria-label="1文字消去">⌫</button>
+    </div>
+
+    <div class="action-row">
+      <button type="button" class="same-btn" id="samePrevBtn">前回と同じ</button>
+      <button type="button" class="submit-btn" id="submitRecBtn">記録する</button>
+    </div>
+
+    <!-- 休憩 -->
+    <div class="break-sec">
+      <div class="break-lbl">休憩</div>
+      <div class="break-pills" id="breakPills">
+        <button type="button" class="br-pill active" data-min="0">なし</button>
+        <button type="button" class="br-pill" data-min="15">15分</button>
+        <button type="button" class="br-pill" data-min="30">30分</button>
+        <button type="button" class="br-pill" data-min="45">45分</button>
+        <button type="button" class="br-pill" data-min="60">1時間</button>
+      </div>
+    </div>
+
+    <div class="calc-preview" id="calcPreview">出勤と退勤を入れると時間が出ます</div>
+    <p class="help-note">例：2200 → 22:00、930 → 9:30。4桁押すと自動で退勤に移ります。上部の「今すぐ出勤／今すぐ退勤」で現在時刻の打刻もできます。</p>
+  </section>
+
+  <!-- 書き出しカード -->
+  <section class="export-card" aria-label="書き出し">
+    <label class="chk-row" id="includePayToggle">
+      <span class="chk-box" id="includePayBox">✓</span>
+      <span>書き出しに時給と概算給料を載せる</span>
+    </label>
+    <div class="exp-btns">
+      <button type="button" class="exp-btn" id="csvBtn">CSVで書き出す</button>
+      <button type="button" class="exp-btn" id="pdfBtn">PDFで書き出す（印刷用）</button>
+    </div>
+  </section>
+
+  <!-- 勤務一覧 -->
+  <section class="list-card" aria-label="勤務一覧">
+    <div class="list-head">
+      <span>日付</span>
+      <span>出勤 → 退勤</span>
+      <span class="c">休憩</span>
+      <span class="r">時間</span>
+      <span></span>
+    </div>
+    <div id="recordList"></div>
+  </section>
+
+  <!-- カレンダー同期（iOSカレンダー／ICS連携） -->
+  <section class="cal-card" aria-label="カレンダー同期">
+    <label class="chk-row" id="calSyncToggle">
+      <span class="chk-box" id="calSyncBox">✓</span>
+      <span>iPhoneのカレンダー「バイト」と同期する</span>
+    </label>
+    <button type="button" class="cal-sync-btn" id="calSyncNowBtn">今すぐ同期</button>
+    <p class="cal-desc">記録するとカレンダー「バイト」向けの予定（.ics）を作成できます。Webブラウザ単体ではiOSカレンダーへの直接書き込み権限がないため、「今すぐ同期」で予定ファイル（.ics）を書き出してカレンダーに追加できます。</p>
+  </section>
+
+  <div class="footer-note">
+    <div>記録はこの携帯に保存されます。</div>
+    <div class="footer-links">
+      <button type="button" class="footer-link" id="updateBtn">最新版に更新</button>
+      <button type="button" class="footer-link" id="exportHtmlBtn">HTML保存</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="printArea" class="print-only" aria-hidden="true"></div>
+
+<!-- 記録編集モーダル -->
+<div class="overlay" id="editOverlay" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+  <div class="modal">
+    <h3 id="editTitle">勤務記録を編集</h3>
+    <div class="m-grid">
+      <div class="full">
+        <label class="field-lbl" for="eDate">日付（YYYY-MM-DD）</label>
+        <input type="text" class="meta-input" id="eDate" />
+      </div>
+      <div>
+        <label class="field-lbl" for="eStart">出勤（HH:MM）</label>
+        <input type="text" class="meta-input" id="eStart" />
+      </div>
+      <div>
+        <label class="field-lbl" for="eEnd">退勤（HH:MM）</label>
+        <input type="text" class="meta-input" id="eEnd" />
+      </div>
+      <div>
+        <label class="field-lbl" for="eBreak">休憩（分）</label>
+        <input type="number" class="meta-input" id="eBreak" min="0" step="1" />
+      </div>
+      <div>
+        <label class="field-lbl" for="eMemo">メモ（場所など）</label>
+        <input type="text" class="meta-input" id="eMemo" />
+      </div>
+    </div>
+    <div class="m-btns">
+      <button type="button" id="eCancel">キャンセル</button>
+      <button type="button" class="save" id="eSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+  var LS_KEY = "baito-kinmu-kiroku-v1";
+  var DOW = ["日","月","火","水","木","金","土"];
+
+  function $(id){ return document.getElementById(id); }
+  function pad(n){ return (n<10?"0":"")+n; }
+  function dateStr(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function reiwaDateStr(iso){
+    var p = iso.split("-");
+    if(p.length !== 3) return iso;
+    var y = +p[0], m = +p[1], d = +p[2];
+    var reiwa = y - 2018;
+    return (reiwa > 0 ? "R"+reiwa : y) + "/" + pad(m) + "/" + pad(d);
+  }
+  function parseDateInput(raw){
+    if(!raw) return null;
+    var s = String(raw).trim();
+    var m = s.match(/^[Rr]?(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if(m){
+      var y = 2018 + parseInt(m[1],10);
+      var mo = parseInt(m[2],10), da = parseInt(m[3],10);
+      if(mo>=1 && mo<=12 && da>=1 && da<=31) return y+"-"+pad(mo)+"-"+pad(da);
+    }
+    var iso = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if(iso){
+      var yy = parseInt(iso[1],10), mm = parseInt(iso[2],10), dd = parseInt(iso[3],10);
+      if(mm>=1 && mm<=12 && dd>=1 && dd<=31) return yy+"-"+pad(mm)+"-"+pad(dd);
+    }
+    return null;
+  }
+
+  function fmtColonHM(min){
+    min = Math.max(0, Math.round(min));
+    var h = Math.floor(min/60), m = min%60;
+    return h + ":" + pad(m);
+  }
+  function fmtYenPlain(n){
+    return Math.round(n).toLocaleString("ja-JP");
+  }
+  function uid(){
+    return "r"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  }
+
+  var state = {
+    settings: {
+      wage: 1500,
+      transport: 0,
+      lastPlace: "",
+      includePayInExport: true,
+      calSyncEnabled: true
+    },
+    records: [],
+    current: null
+  };
+
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      if(parsed && typeof parsed === "object"){
+        if(parsed.settings) state.settings = Object.assign(state.settings, parsed.settings);
+        if(Array.isArray(parsed.records)) state.records = parsed.records;
+        if(parsed.current) state.current = parsed.current;
+      }
+    }
+  }catch(e){}
+
+  function nativeHandler(name){
+    try{ return (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[name]) || null; }catch(e){ return null; }
+  }
+
+  function save(){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+    var storeH = nativeHandler("store");
+    if(storeH){ try{ storeH.postMessage(JSON.stringify(state)); }catch(e){} }
+  }
+
+  // アプリ版（IPA）の殻に残っている保存データの取り込み
+  // ・殻は前回までの保存内容を window.__nativeState として渡してくる
+  // ・旧「バイト時間カード」形式（月ごと＋_settings）の場合は、このアプリの形式に変換して取り込む
+  (function(){
+    function addRec(date, start, end, brk, memo, wage){
+      if(!date || !start || !end) return;
+      var dup = state.records.some(function(r){ return r.date === date && r.start === start && r.end === end; });
+      if(dup) return;
+      state.records.push({ id: uid(), date: date, start: start, end: end, breakMin: brk || 0, place: "", memo: memo || "", wage: wage || state.settings.wage, transport: 0 });
+    }
+    function importCardShape(src){
+      if(!src || typeof src !== "object") return;
+      var wage = src._settings ? (parseInt(src._settings.wage, 10) || 0) : 0;
+      Object.keys(src).forEach(function(k){
+        if(k === "_settings") return;
+        var bucket = src[k];
+        if(!bucket || typeof bucket !== "object" || Array.isArray(bucket)) return;
+        Object.keys(bucket).forEach(function(id){
+          var e = bucket[id];
+          if(e && typeof e === "object") addRec(e.date, e.start, e.end, e.brk, e.memo, wage);
+        });
+      });
+    }
+    var hadOwn = false;
+    try{ hadOwn = !!localStorage.getItem(LS_KEY); }catch(e){}
+    try{
+      var ns = window.__nativeState;
+      if(ns && typeof ns === "object"){
+        try{ if(!localStorage.getItem("baito-native-backup-v1")) localStorage.setItem("baito-native-backup-v1", JSON.stringify(ns)); }catch(e){}
+        if(Array.isArray(ns.records)){
+          ns.records.forEach(function(r){
+            if(r && r.date && r.start && r.end && !state.records.some(function(x){ return x.date === r.date && x.start === r.start && x.end === r.end; })){
+              state.records.push({ id: r.id || uid(), date: r.date, start: r.start, end: r.end, breakMin: r.breakMin || 0, place: r.place || "", memo: r.memo || "", wage: (r.wage != null ? r.wage : state.settings.wage), transport: r.transport || 0 });
+            }
+          });
+          if(ns.settings && !hadOwn) state.settings = Object.assign(state.settings, ns.settings);
+        }else{
+          importCardShape(ns);
+          if(ns._settings && ns._settings.wage && !hadOwn){
+            var w0 = parseInt(ns._settings.wage, 10);
+            if(w0 > 0) state.settings.wage = w0;
+          }
+        }
+      }
+    }catch(e){}
+    try{
+      var cr = localStorage.getItem("baito-card-v1");
+      if(cr) importCardShape(JSON.parse(cr));
+    }catch(e){}
+    save();
+  })();
+
+  var now = new Date();
+  var viewY = now.getFullYear(), viewM = now.getMonth();
+
+  // テンキー入力用バッファ
+  var activeSlot = "in"; // "in" | "out"
+  var digitsIn = "";
+  var digitsOut = "";
+  var selectedBreak = 0;
+  var editingId = null;
+
+  function digitsToDisplay(dg){
+    if(!dg) return "--:--";
+    if(dg.length <= 2) return dg + ":--";
+    if(dg.length === 3) return "0" + dg[0] + ":" + dg.slice(1);
+    return dg.slice(0,2) + ":" + dg.slice(2,4);
+  }
+  function digitsToHHMM(dg){
+    if(!dg || dg.length < 3) return null;
+    var h, m;
+    if(dg.length === 3){
+      h = parseInt(dg[0],10);
+      m = parseInt(dg.slice(1,3),10);
+    }else{
+      h = parseInt(dg.slice(0,2),10);
+      m = parseInt(dg.slice(2,4),10);
+    }
+    if(isNaN(h) || isNaN(m) || h > 23 || m > 59) return null;
+    return pad(h) + ":" + pad(m);
+  }
+  function hhmmToDigits(hhmm){
+    if(!hhmm) return "";
+    var p = hhmm.split(":");
+    if(p.length !== 2) return "";
+    var h = parseInt(p[0],10), m = parseInt(p[1],10);
+    if(isNaN(h) || isNaN(m)) return "";
+    var raw = String(h) + pad(m);
+    return raw.length > 4 ? raw.slice(-4) : raw;
+  }
+
+  function spanMin(start, end){
+    var s = start.split(":"), e = end.split(":");
+    var sm = (+s[0])*60 + (+s[1]);
+    var em = (+e[0])*60 + (+e[1]);
+    var d = em - sm;
+    if(d < 0) d += 24*60;
+    return d;
+  }
+  function workedMin(rec){
+    return Math.max(0, spanMin(rec.start, rec.end) - (rec.breakMin || 0));
+  }
+  function payOf(rec){
+    var wage = (rec.wage != null ? rec.wage : state.settings.wage) || 0;
+    return Math.floor(workedMin(rec) * wage / 60) + (rec.transport || 0);
+  }
+  function monthRecords(y, m){
+    var key = y + "-" + pad(m+1);
+    return state.records.filter(function(r){ return r.date.indexOf(key) === 0; })
+      .sort(function(a,b){ return (a.date + a.start) < (b.date + b.start) ? 1 : -1; });
+  }
+
+  var toastTimer = null;
+  function toast(msg){
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2400);
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function setActiveSlot(slot){
+    activeSlot = slot;
+    $("slotIn").classList.toggle("active", slot === "in");
+    $("slotOut").classList.toggle("active", slot === "out");
+  }
+
+  function renderKeypadDisplay(){
+    var vIn = $("valIn"), vOut = $("valOut");
+    vIn.textContent = digitsToDisplay(digitsIn);
+    vOut.textContent = digitsToDisplay(digitsOut);
+    vIn.classList.toggle("empty", !digitsIn);
+    vOut.classList.toggle("empty", !digitsOut);
+
+    var sHM = digitsToHHMM(digitsIn);
+    var eHM = digitsToHHMM(digitsOut);
+    if(sHM && eHM){
+      var wm = Math.max(0, spanMin(sHM, eHM) - selectedBreak);
+      var wage = parseInt($("wageInput").value, 10) || state.settings.wage || 0;
+      var est = Math.floor(wm * wage / 60);
+      $("calcPreview").textContent = "実働 " + fmtColonHM(wm) + "（休憩 " + selectedBreak + "分） ／ 概算 約" + fmtYenPlain(est) + "円";
+    }else{
+      $("calcPreview").textContent = "出勤と退勤を入れると時間が出ます";
+    }
+  }
+
+  function initInputs(){
+    var d = new Date();
+    $("dateInput").value = reiwaDateStr(dateStr(d));
+    $("memoInput").value = state.settings.lastPlace || "";
+    $("wageInput").value = state.settings.wage;
+    $("includePayBox").classList.toggle("off", !state.settings.includePayInExport);
+    $("calSyncBox").classList.toggle("off", !state.settings.calSyncEnabled);
+    renderKeypadDisplay();
+  }
+
+  // スロット切替
+  $("slotIn").addEventListener("click", function(){ setActiveSlot("in"); });
+  $("slotOut").addEventListener("click", function(){ setActiveSlot("out"); });
+
+  // テンキー操作
+  $("keypad").addEventListener("click", function(ev){
+    var btn = ev.target.closest("[data-k]");
+    if(!btn) return;
+    var k = btn.getAttribute("data-k");
+    var curDg = activeSlot === "in" ? digitsIn : digitsOut;
+
+    if(k === "C"){
+      curDg = "";
+    }else if(k === "BS"){
+      curDg = curDg.slice(0, -1);
+    }else{
+      if(curDg.length >= 4) curDg = k;
+      else curDg = curDg + k;
+    }
+
+    if(activeSlot === "in"){
+      digitsIn = curDg;
+      if(digitsIn.length === 4 && !digitsOut){
+        setActiveSlot("out");
+      }
+    }else{
+      digitsOut = curDg;
+    }
+    renderKeypadDisplay();
+  });
+
+  // 休憩ピル選択
+  $("breakPills").addEventListener("click", function(ev){
+    var pill = ev.target.closest("[data-min]");
+    if(!pill) return;
+    selectedBreak = parseInt(pill.getAttribute("data-min"), 10) || 0;
+    document.querySelectorAll(".br-pill").forEach(function(el){
+      el.classList.toggle("active", parseInt(el.getAttribute("data-min"), 10) === selectedBreak);
+    });
+    renderKeypadDisplay();
+  });
+
+  // 今すぐ出勤／今すぐ退勤
+  $("punchNowIn").addEventListener("click", function(){
+    var d = new Date();
+    digitsIn = pad(d.getHours()) + pad(d.getMinutes());
+    $("dateInput").value = reiwaDateStr(dateStr(d));
+    setActiveSlot("out");
+    renderKeypadDisplay();
+    toast("現在時刻（" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + "）を出勤にセットしました");
+  });
+
+  $("punchNowOut").addEventListener("click", function(){
+    var d = new Date();
+    digitsOut = pad(d.getHours()) + pad(d.getMinutes());
+    renderKeypadDisplay();
+    toast("現在時刻（" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + "）を退勤にセットしました");
+  });
+
+  // 前回と同じ
+  $("samePrevBtn").addEventListener("click", function(){
+    if(!state.records.length){
+      toast("前回の記録がありません");
+      return;
+    }
+    var sorted = state.records.slice().sort(function(a,b){
+      return (a.date + a.start) < (b.date + b.start) ? 1 : -1;
+    });
+    var prev = sorted[0];
+    digitsIn = hhmmToDigits(prev.start);
+    digitsOut = hhmmToDigits(prev.end);
+    selectedBreak = prev.breakMin || 0;
+    if(prev.place) $("memoInput").value = prev.place;
+    document.querySelectorAll(".br-pill").forEach(function(el){
+      el.classList.toggle("active", parseInt(el.getAttribute("data-min"), 10) === selectedBreak);
+    });
+    renderKeypadDisplay();
+    toast("前回の時間（" + prev.start + " → " + prev.end + "）を反映しました");
+  });
+
+  // 記録する
+  $("submitRecBtn").addEventListener("click", function(){
+    var isoDate = parseDateInput($("dateInput").value) || dateStr(new Date());
+    var sHM = digitsToHHMM(digitsIn);
+    var eHM = digitsToHHMM(digitsOut);
+    if(!sHM){
+      toast("出勤時刻を3〜4桁の数字で入力してください");
+      setActiveSlot("in");
+      return;
+    }
+    if(!eHM){
+      toast("退勤時刻を3〜4桁の数字で入力してください");
+      setActiveSlot("out");
+      return;
+    }
+    var span = spanMin(sHM, eHM);
+    if(selectedBreak > 0 && selectedBreak >= span){
+      toast("休憩時間が勤務時間以上になっています");
+      return;
+    }
+    var wage = Math.max(0, parseInt($("wageInput").value, 10) || 0);
+    var memo = $("memoInput").value.trim();
+
+    state.settings.wage = wage;
+    if(memo) state.settings.lastPlace = memo;
+
+    var rec = {
+      id: uid(),
+      date: isoDate,
+      start: sHM,
+      end: eHM,
+      breakMin: selectedBreak,
+      place: memo,
+      memo: "",
+      wage: wage,
+      transport: state.settings.transport || 0
+    };
+    state.records.push(rec);
+
+    var parts = isoDate.split("-");
+    viewY = +parts[0];
+    viewM = (+parts[1]) - 1;
+
+    digitsIn = "";
+    digitsOut = "";
+    setActiveSlot("in");
+    save();
+    renderAll();
+    toast("記録しました（" + sHM + " → " + eHM + "）");
+  });
+
+  // 時給変更
+  $("wageInput").addEventListener("change", function(){
+    var w = Math.max(0, parseInt($("wageInput").value, 10) || 0);
+    $("wageInput").value = w;
+    state.settings.wage = w;
+    save();
+    renderSummary();
+    renderKeypadDisplay();
+  });
+
+  // 月切替
+  $("prevMonth").addEventListener("click", function(){
+    viewM--;
+    if(viewM < 0){ viewM = 11; viewY--; }
+    renderSummary();
+    renderList();
+  });
+  $("nextMonth").addEventListener("click", function(){
+    viewM++;
+    if(viewM > 11){ viewM = 0; viewY++; }
+    renderSummary();
+    renderList();
+  });
+
+  function renderSummary(){
+    $("monthLabel").textContent = viewY + "年" + (viewM + 1) + "月";
+    var recs = monthRecords(viewY, viewM);
+    var days = {}, totalMin = 0, totalPay = 0;
+    var defaultWage = parseInt($("wageInput").value, 10) || state.settings.wage || 0;
+
+    recs.forEach(function(r){
+      days[r.date] = 1;
+      var wm = workedMin(r);
+      totalMin += wm;
+      var w = (r.wage != null ? r.wage : defaultWage) || 0;
+      totalPay += Math.floor(wm * w / 60) + (r.transport || 0);
+    });
+
+    var dayCount = Object.keys(days).length;
+    var avgMin = dayCount > 0 ? Math.round(totalMin / dayCount) : 0;
+
+    $("totalHM").textContent = fmtColonHM(totalMin);
+    $("statDays").textContent = dayCount;
+    $("statAvg").textContent = fmtColonHM(avgMin);
+    $("estPay").textContent = fmtYenPlain(totalPay);
+
+    var t = new Date();
+    $("nextMonth").disabled = (viewY > t.getFullYear()) || (viewY === t.getFullYear() && viewM >= t.getMonth());
+    updatePrintArea();
+  }
+
+  function renderList(){
+    var recs = monthRecords(viewY, viewM);
+    var box = $("recordList");
+    if(!recs.length){
+      box.innerHTML = '<div class="empty-list">この月の勤務記録はまだありません。</div>';
+      return;
+    }
+
+    box.innerHTML = recs.map(function(r){
+      var parts = r.date.split("-");
+      var mNum = +parts[1], dNum = +parts[2];
+      var dt = new Date(r.date + "T00:00:00");
+      var dow = dt.getDay();
+      var dowClass = dow === 0 ? " sun" : (dow === 6 ? " sat" : "");
+      var brText = r.breakMin ? (r.breakMin + "分") : "-";
+      var wm = workedMin(r);
+      var subLabel = r.place || r.memo || "";
+
+      return '<div class="rec-item" data-id="' + esc(r.id) + '">'
+        + '<div class="rec-d' + dowClass + '"><span class="md">' + mNum + '/' + dNum + '</span><span class="w">' + DOW[dow] + '</span></div>'
+        + '<div class="rec-mid"><div class="rec-t">' + esc(r.start) + '<span class="arr">→</span>' + esc(r.end) + '</div>'
+        + (subLabel ? '<div class="rec-memo">' + esc(subLabel) + '</div>' : '') + '</div>'
+        + '<div class="rec-br">' + esc(brText) + '</div>'
+        + '<div class="rec-dur">' + fmtColonHM(wm) + '</div>'
+        + '<button type="button" class="rec-del" data-del="' + esc(r.id) + '" aria-label="削除">×</button>'
+        + '</div>';
+    }).join("");
+  }
+
+  // 一覧クリック（削除または編集）
+  $("recordList").addEventListener("click", function(ev){
+    var delBtn = ev.target.closest("[data-del]");
+    if(delBtn){
+      ev.stopPropagation();
+      var delId = delBtn.getAttribute("data-del");
+      state.records = state.records.filter(function(r){ return r.id !== delId; });
+      save();
+      renderAll();
+      toast("記録を削除しました");
+      return;
+    }
+    var row = ev.target.closest(".rec-item");
+    if(row){
+      var rec = state.records.find(function(r){ return r.id === row.getAttribute("data-id"); });
+      if(rec) openEditModal(rec);
+    }
+  });
+
+  // 編集モーダル
+  function openEditModal(rec){
+    editingId = rec.id;
+    $("eDate").value = rec.date;
+    $("eStart").value = rec.start;
+    $("eEnd").value = rec.end;
+    $("eBreak").value = rec.breakMin || 0;
+    $("eMemo").value = rec.place || rec.memo || "";
+    $("editOverlay").classList.add("open");
+  }
+  function closeEditModal(){
+    $("editOverlay").classList.remove("open");
+    editingId = null;
+  }
+  $("eCancel").addEventListener("click", closeEditModal);
+  $("editOverlay").addEventListener("click", function(ev){ if(ev.target === this) closeEditModal(); });
+  $("eSave").addEventListener("click", function(){
+    if(!editingId) return;
+    var rec = state.records.find(function(r){ return r.id === editingId; });
+    if(!rec) return;
+    var nd = parseDateInput($("eDate").value) || rec.date;
+    var ns = $("eStart").value.trim() || rec.start;
+    var ne = $("eEnd").value.trim() || rec.end;
+    var nb = Math.max(0, parseInt($("eBreak").value, 10) || 0);
+    var nm = $("eMemo").value.trim();
+    rec.date = nd; rec.start = ns; rec.end = ne; rec.breakMin = nb; rec.place = nm;
+    save();
+    closeEditModal();
+    renderAll();
+    toast("記録を更新しました");
+  });
+
+  // 書き出しオプション
+  $("includePayToggle").addEventListener("click", function(){
+    state.settings.includePayInExport = !state.settings.includePayInExport;
+    $("includePayBox").classList.toggle("off", !state.settings.includePayInExport);
+    save();
+    updatePrintArea();
+  });
+
+  function csvCell(v){
+    v = String(v == null ? "" : v);
+    if(/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }
+
+  $("csvBtn").addEventListener("click", function(){
+    var recs = monthRecords(viewY, viewM).slice().reverse();
+    if(!recs.length){ toast("この月の記録がありません"); return; }
+    var withPay = state.settings.includePayInExport;
+    var header = ["日付","曜日","出勤","退勤","休憩(分)","実働時間","メモ"];
+    if(withPay) header.push("時給","概算給料");
+    var lines = [header.join(",")];
+    var tMin = 0, tPay = 0;
+
+    recs.forEach(function(r){
+      var dt = new Date(r.date + "T00:00:00");
+      var wm = workedMin(r);
+      var w = (r.wage != null ? r.wage : state.settings.wage) || 0;
+      var p = Math.floor(wm * w / 60) + (r.transport || 0);
+      tMin += wm; tPay += p;
+      var row = [r.date, DOW[dt.getDay()], r.start, r.end, (r.breakMin || 0), fmtColonHM(wm), csvCell(r.place || r.memo || "")];
+      if(withPay) row.push(w, p);
+      lines.push(row.join(","));
+    });
+
+    var totRow = ["合計","","","", "", fmtColonHM(tMin), ""];
+    if(withPay) totRow.push("", tPay);
+    lines.push(totRow.join(","));
+
+    var csvText = "﻿" + lines.join("\r\n");
+    var shareCsv = nativeHandler("share");
+    if(shareCsv){ shareCsv.postMessage({ name: "バイト時間_" + viewY + "年" + (viewM + 1) + "月.csv", text: csvText }); toast("CSVを書き出しました"); return; }
+    var blob = new Blob([csvText], { type:"text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "バイト時間_" + viewY + "年" + (viewM + 1) + "月.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    toast("CSVを書き出しました");
+  });
+
+  function fmtJpDur(min){
+    min = Math.max(0, Math.round(min));
+    return Math.floor(min / 60) + "時間" + pad(min % 60) + "分";
+  }
+
+  function updatePrintArea(){
+    var area = $("printArea"); if(!area) return;
+    var recs = monthRecords(viewY, viewM).slice().sort(function(a, b){ return (a.date + a.start).localeCompare(b.date + b.start); });
+    var withPay = state.settings.includePayInExport;
+    var tMin = 0, tPay = 0;
+    var days = {};
+    var rows = recs.map(function(r){
+      var dt = new Date(r.date + "T00:00:00");
+      var wm = workedMin(r);
+      var w = (r.wage != null ? r.wage : state.settings.wage) || 0;
+      var p = Math.floor(wm * w / 60) + (r.transport || 0);
+      tMin += wm; tPay += p;
+      days[r.date] = 1;
+      return "<tr><td>" + (dt.getMonth() + 1) + "/" + dt.getDate() + "</td>"
+        + "<td>" + DOW[dt.getDay()] + "</td>"
+        + "<td>" + esc(r.start) + "</td>"
+        + "<td>" + esc(r.end) + (r.end <= r.start ? "（翌日）" : "") + "</td>"
+        + "<td>" + (r.breakMin ? r.breakMin + "分" : "—") + "</td>"
+        + "<td class='r'>" + fmtJpDur(wm) + "</td>"
+        + "<td>" + esc(r.place || r.memo || "") + "</td>"
+        + "</tr>";
+    }).join("");
+    var dayCount = Object.keys(days).length;
+    var sum = "<table class='print-sum'>"
+      + "<tr><td>出勤日数</td><td class='r'>" + dayCount + " 日</td></tr>"
+      + "<tr class='big'><td>合計時間</td><td class='r'>" + fmtJpDur(tMin) + "</td></tr>"
+      + "<tr><td>合計（分）</td><td class='r'>" + tMin.toLocaleString("ja-JP") + " 分</td></tr>"
+      + (withPay ? "<tr><td>時給</td><td class='r'>" + fmtYenPlain(state.settings.wage || 0) + " 円</td></tr>"
+        + "<tr class='big'><td>概算給料</td><td class='r'>" + fmtYenPlain(tPay) + " 円</td></tr>" : "")
+      + "</table>";
+    area.innerHTML = "<h1>バイト勤務記録　" + viewY + "年" + (viewM + 1) + "月</h1>"
+      + "<table class='print-table'><thead><tr><th>日付</th><th>曜日</th><th>出勤</th><th>退勤</th><th>休憩</th><th class='r'>勤務時間</th><th>メモ</th></tr></thead><tbody>" + rows + "</tbody></table>"
+      + sum;
+  }
+
+  $("pdfBtn").addEventListener("click", function(){
+    if(!monthRecords(viewY, viewM).length){ toast("この月の記録がありません"); return; }
+    updatePrintArea();
+    var pdfH = nativeHandler("pdf");
+    if(pdfH){
+      var printCss = "body{font-family:\"Hiragino Sans\",\"Hiragino Kaku Gothic ProN\",\"Noto Sans JP\",sans-serif;color:#1c2033;font-size:11pt}h1{font-size:16pt;margin:0 0 12pt}table{width:100%;border-collapse:collapse}th,td{border:0.5pt solid #b9bdcc;padding:4pt 6pt;text-align:left}th{background:#e9ecf5;font-size:9pt}.r{text-align:right}.print-sum{margin-top:14pt;width:70%;margin-left:auto}.print-sum td{border:0;border-bottom:0.5pt solid #b9bdcc}.print-sum td.r{white-space:nowrap}.print-sum .big td{font-size:13pt;font-weight:bold}";
+      pdfH.postMessage({ name: "バイト時間_" + viewY + "年" + (viewM + 1) + "月.pdf", html: "<!doctype html><html><head><meta charset='utf-8'><style>" + printCss + "</style></head><body>" + $("printArea").innerHTML + "</body></html>" });
+      toast("PDFを作成します");
+      return;
+    }
+    setTimeout(function(){ window.print(); }, 80);
+  });
+
+  // カレンダー同期（.ics 書き出し）
+  $("calSyncToggle").addEventListener("click", function(){
+    state.settings.calSyncEnabled = !state.settings.calSyncEnabled;
+    $("calSyncBox").classList.toggle("off", !state.settings.calSyncEnabled);
+    save();
+  });
+
+  $("calSyncNowBtn").addEventListener("click", function(){
+    var recs = monthRecords(viewY, viewM);
+    if(!recs.length){ toast("同期する勤務記録がありません"); return; }
+    var icsLines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Baito Jikan//JP",
+      "X-WR-CALNAME:バイト"
+    ];
+    recs.forEach(function(r){
+      var dCompact = r.date.replace(/-/g, "");
+      var sCompact = r.start.replace(":", "") + "00";
+      var eCompact = r.end.replace(":", "") + "00";
+      var summary = "バイト" + (r.place ? "（" + r.place + "）" : "");
+      icsLines.push("BEGIN:VEVENT");
+      icsLines.push("UID:" + r.id + "@baito-jikan");
+      var eDate = r.date;
+      if(r.end <= r.start){ var nd = new Date(r.date + "T00:00:00"); nd.setDate(nd.getDate() + 1); eDate = dateStr(nd); }
+      icsLines.push("DTSTART:" + dCompact + "T" + sCompact);
+      icsLines.push("DTEND:" + eDate.replace(/-/g, "") + "T" + eCompact);
+      icsLines.push("SUMMARY:" + summary);
+      icsLines.push("END:VEVENT");
+    });
+    icsLines.push("END:VCALENDAR");
+
+    var icsText = icsLines.join("\r\n");
+    var shareIcs = nativeHandler("share");
+    if(shareIcs){ shareIcs.postMessage({ name: "バイト_" + viewY + "_" + pad(viewM + 1) + ".ics", text: icsText }); toast("カレンダー予定（.ics）を書き出しました"); return; }
+    var blob = new Blob([icsText], { type:"text/calendar;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "バイト_" + viewY + "_" + pad(viewM + 1) + ".ics";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    toast("カレンダー予定（.ics）を書き出しました");
+  });
+
+  // 更新・HTML保存
+  $("updateBtn").addEventListener("click", function(){
+    save();
+    var u = new URL(window.location.href);
+    u.searchParams.set("_upd", String(Date.now()));
+    window.location.replace(u.toString());
+  });
+  $("exportHtmlBtn").addEventListener("click", function(){
+    var html = "<!doctype html>\n" + document.documentElement.outerHTML;
+    var shareHtml = nativeHandler("share");
+    if(shareHtml){ shareHtml.postMessage({ name: "index.html", text: html }); toast("index.html を保存しました"); return; }
+    var blob = new Blob([html], { type:"text/html;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "index.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    toast("index.html を保存しました");
+  });
+
+  function renderAll(){
+    renderSummary();
+    renderList();
+    renderKeypadDisplay();
+  }
+
+  initInputs();
+  renderAll();
+})();
+</script>
+</body>
+</html>
