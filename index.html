@@ -130,12 +130,16 @@
   @media print{
     body{background:#fff!important;color:#000!important;padding:0!important}
     .wrap,.overlay,.toast{display:none!important}
-    .print-only{display:block!important;color:#000;background:#fff;font-size:12px}
-    .print-only h1{font-size:19px;margin:0 0 6px}
-    .print-table{width:100%;border-collapse:collapse;margin-top:10px}
-    .print-table th,.print-table td{border:1px solid #999;padding:5px 7px;text-align:left}
-    .print-table th{background:#f0f0f0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .print-only{display:block!important;color:#1c2033;background:#fff;font-size:12px}
+    .print-only h1{font-size:19px;margin:0 0 10px}
+    .print-table{width:100%;border-collapse:collapse}
+    .print-table th,.print-table td{border:1px solid #b9bdcc;padding:5px 7px;text-align:left}
+    .print-table th{background:#e9ecf5!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .print-table .r{text-align:right}
+    .print-sum{width:70%;margin:12px 0 0 auto;border-collapse:collapse}
+    .print-sum td{border-bottom:1px solid #b9bdcc;padding:5px 7px}
+    .print-sum td.r{text-align:right;white-space:nowrap}
+    .print-sum .big td{font-size:15px;font-weight:800}
   }
 
   /* 記録リスト */
@@ -831,31 +835,41 @@
     return state.records.filter(function(r){ return r.date.indexOf(key)===0; })
       .sort(function(a,b){ return (a.date+a.start) < (b.date+b.start) ? -1 : 1; });
   }
+  function fmtJpDur(min){
+    min = Math.max(0, Math.round(min));
+    return Math.floor(min / 60) + "時間" + pad(min % 60) + "分";
+  }
   function updatePrintArea(){
     var area = $("printArea"); if(!area) return;
     var recs = sortedMonthAsc();
-    var withPay = state.settings.includePayInExport !== false; // zip版の「書き出しに時給と概算給料を載せる」
+    var withPay = state.settings.includePayInExport !== false; // 「書き出しに時給と概算給料を載せる」
     var tMin = 0, tPay = 0;
+    var days = {};
     var rows = recs.map(function(r){
       var dt = new Date(r.date + "T00:00:00");
       var wm = workedMin(r);
-      var w = (r.wage != null ? r.wage : state.settings.wage) || 0;
-      var p = payOf(r);
-      tMin += wm; tPay += p;
-      return "<tr><td>" + esc(r.date) + " (" + DOW[dt.getDay()] + ")</td>"
-        + "<td>" + esc(r.start) + " → " + esc(r.end) + "</td>"
-        + "<td>" + (r.breakMin || 0) + "分</td>"
-        + "<td>" + fmtColonHM(wm) + "</td>"
+      tMin += wm; tPay += payOf(r);
+      days[r.date] = 1;
+      return "<tr><td>" + (dt.getMonth() + 1) + "/" + dt.getDate() + "</td>"
+        + "<td>" + DOW[dt.getDay()] + "</td>"
+        + "<td>" + esc(r.start) + "</td>"
+        + "<td>" + esc(r.end) + (r.end <= r.start ? "（翌日）" : "") + "</td>"
+        + "<td>" + (r.breakMin ? r.breakMin + "分" : "—") + "</td>"
+        + "<td class='r'>" + fmtJpDur(wm) + "</td>"
         + "<td>" + esc(memoTextOf(r)) + "</td>"
-        + (withPay ? "<td class='r'>¥" + fmtYenPlain(w) + "</td><td class='r'>¥" + fmtYenPlain(p) + "</td>" : "")
         + "</tr>";
     }).join("");
-
-    area.innerHTML = "<h1>バイト時間 " + viewY + "年" + (viewM + 1) + "月</h1>"
-      + "<div>合計実働：" + fmtColonHM(tMin) + "時間" + (withPay ? " ／ 概算給料：約" + fmtYenPlain(tPay) + "円" : "") + "</div>"
-      + "<table class='print-table'><thead><tr><th>日付</th><th>出勤→退勤</th><th>休憩</th><th>実働</th><th>メモ</th>"
-      + (withPay ? "<th>時給</th><th>概算</th>" : "")
-      + "</tr></thead><tbody>" + rows + "</tbody></table>";
+    var dayCount = Object.keys(days).length;
+    var sum = "<table class='print-sum'>"
+      + "<tr><td>出勤日数</td><td class='r'>" + dayCount + " 日</td></tr>"
+      + "<tr class='big'><td>合計時間</td><td class='r'>" + fmtJpDur(tMin) + "</td></tr>"
+      + "<tr><td>合計（分）</td><td class='r'>" + tMin.toLocaleString("ja-JP") + " 分</td></tr>"
+      + (withPay ? "<tr><td>時給</td><td class='r'>" + fmtYenPlain(state.settings.wage || 0) + " 円</td></tr>"
+        + "<tr class='big'><td>概算給料</td><td class='r'>" + fmtYenPlain(tPay) + " 円</td></tr>" : "")
+      + "</table>";
+    area.innerHTML = "<h1>バイト勤務記録　" + viewY + "年" + (viewM + 1) + "月</h1>"
+      + "<table class='print-table'><thead><tr><th>日付</th><th>曜日</th><th>出勤</th><th>退勤</th><th>休憩</th><th class='r'>勤務時間</th><th>メモ</th></tr></thead><tbody>" + rows + "</tbody></table>"
+      + sum;
   }
   if($("pdfBtn")){
     $("pdfBtn").addEventListener("click", function(){
@@ -876,14 +890,18 @@
       // 印刷用HTMLを作って新しいタブで開く（開いたページで自動的に印刷画面が出る）
       var printHtml = "<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\">"
         + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-        + "<title>バイト時間（印刷）</title><style>"
-        + "@page{size:A4 landscape;margin:12mm}"
+        + "<title>バイト勤務記録（印刷）</title><style>"
+        + "@page{size:A4;margin:12mm}"
         + "body{font-family:-apple-system,'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif;color:#000;background:#fff;font-size:12px;margin:0;padding:12px}"
-        + "h1{font-size:19px;margin:0 0 6px}"
-        + ".print-table{width:100%;border-collapse:collapse;margin-top:10px}"
-        + ".print-table th,.print-table td{border:1px solid #999;padding:5px 7px;text-align:left}"
-        + ".print-table th{background:#f0f0f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+        + "h1{font-size:19px;margin:0 0 10px}"
+        + ".print-table{width:100%;border-collapse:collapse}"
+        + ".print-table th,.print-table td{border:1px solid #b9bdcc;padding:5px 7px;text-align:left}"
+        + ".print-table th{background:#e9ecf5;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
         + ".print-table .r{text-align:right}"
+        + ".print-sum{width:70%;margin:12px 0 0 auto;border-collapse:collapse}"
+        + ".print-sum td{border-bottom:1px solid #b9bdcc;padding:5px 7px}"
+        + ".print-sum td.r{text-align:right;white-space:nowrap}"
+        + ".print-sum .big td{font-size:15px;font-weight:800}"
         + ".print-tip{font-size:11px;color:#666;margin-top:14px}"
         + "@media print{body{padding:0}.print-tip{display:none}}"
         + "</style></head><body>" + $("printArea").innerHTML
