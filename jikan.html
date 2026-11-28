@@ -269,6 +269,17 @@
     .print-sum td.r{text-align:right;white-space:nowrap}
     .print-sum .big td{font-size:15px;font-weight:800}
   }
+  /* PDFファイル生成時のキャプチャ用（画面外で印刷様式を再現する） */
+  .pdf-capture{display:block!important;position:absolute;left:-10000px;top:0;width:760px;background:#fff;color:#1c2033;font-size:12px;padding:16px}
+  .pdf-capture h1{font-size:19px;margin:0 0 10px}
+  .pdf-capture .print-table{width:100%;border-collapse:collapse}
+  .pdf-capture .print-table th,.pdf-capture .print-table td{border:1px solid #b9bdcc;padding:5px 7px;text-align:left}
+  .pdf-capture .print-table th{background:#e9ecf5}
+  .pdf-capture .print-table .r{text-align:right}
+  .pdf-capture .print-sum{width:70%;margin:12px 0 0 auto;border-collapse:collapse}
+  .pdf-capture .print-sum td{border-bottom:1px solid #b9bdcc;padding:5px 7px}
+  .pdf-capture .print-sum td.r{text-align:right;white-space:nowrap}
+  .pdf-capture .print-sum .big td{font-size:15px;font-weight:800}
 
   /* 編集モーダル */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
@@ -1074,6 +1085,61 @@
       + sum;
   }
 
+  function loadScriptOnce(src){
+    return new Promise(function(res, rej){
+      var s = document.createElement("script");
+      s.src = src; s.onload = function(){ res(); }; s.onerror = function(){ rej(new Error("load failed")); };
+      document.head.appendChild(s);
+    });
+  }
+  function ensurePdfLibs(){
+    if(window.html2canvas && window.jspdf) return Promise.resolve();
+    return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js")
+      .then(function(){ return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"); });
+  }
+  function fallbackPrint(){ setTimeout(function(){ window.print(); }, 80); }
+  function exportPdfFile(){
+    ensurePdfLibs().then(function(){
+      var area = $("printArea");
+      area.classList.add("pdf-capture");
+      return html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(function(canvas){
+        area.classList.remove("pdf-capture");
+        var jsPDF = window.jspdf.jsPDF;
+        var pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+        var pageW = 210, pageH = 297, margin = 10;
+        var imgW = pageW - margin * 2;
+        var imgH = canvas.height * imgW / canvas.width;
+        var img = canvas.toDataURL("image/jpeg", 0.92);
+        var heightLeft = imgH;
+        var position = margin;
+        pdf.addImage(img, "JPEG", margin, position, imgW, imgH);
+        heightLeft -= (pageH - margin * 2);
+        while(heightLeft > 0){
+          position = margin - (imgH - heightLeft);
+          pdf.addPage();
+          pdf.addImage(img, "JPEG", margin, position, imgW, imgH);
+          heightLeft -= (pageH - margin * 2);
+        }
+        var blob = pdf.output("blob");
+        var fname = "バイト時間_" + viewY + "年" + (viewM + 1) + "月.pdf";
+        var file = null;
+        try{ file = new File([blob], fname, { type: "application/pdf" }); }catch(e){ file = null; }
+        if(file && navigator.canShare && navigator.share && navigator.canShare({ files: [file] })){
+          navigator.share({ files: [file] }).then(function(){ toast("PDFを共有しました"); }, function(){});
+          return;
+        }
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = fname;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+        toast("PDFファイルを保存しました");
+      });
+    }).catch(function(){
+      var area = $("printArea"); if(area) area.classList.remove("pdf-capture");
+      fallbackPrint();
+    });
+  }
   $("pdfBtn").addEventListener("click", function(){
     if(!monthRecords(viewY, viewM).length){ toast("この月の記録がありません"); return; }
     updatePrintArea();
@@ -1084,7 +1150,7 @@
       toast("PDFを作成します");
       return;
     }
-    setTimeout(function(){ window.print(); }, 80);
+    exportPdfFile();
   });
 
   // カレンダー同期（.ics 書き出し）
