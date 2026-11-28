@@ -554,7 +554,8 @@
       calSyncEnabled: true
     },
     records: [],
-    current: null
+    current: null,
+    draft: null
   };
 
   try{
@@ -565,6 +566,7 @@
         if(parsed.settings) state.settings = Object.assign(state.settings, parsed.settings);
         if(Array.isArray(parsed.records)) state.records = parsed.records;
         if(parsed.current) state.current = parsed.current;
+        if(parsed.draft) state.draft = parsed.draft;
       }
     }
   }catch(e){}
@@ -615,6 +617,7 @@
             }
           });
           if(ns.settings && !hadOwn) state.settings = Object.assign(state.settings, ns.settings);
+          if(ns.draft && !hadOwn) state.draft = ns.draft;
         }else{
           importCardShape(ns);
           if(ns._settings && ns._settings.wage && !hadOwn){
@@ -640,6 +643,41 @@
   var digitsOut = "";
   var selectedBreak = 0;
   var editingId = null;
+
+  // 入力途中の下書き保存（バックグラウンドでアプリが終了しても打刻・入力が消えないように）
+  var draftReady = false;
+  function persistDraft(){
+    if(!draftReady || editingId) return;
+    if(!digitsIn && !digitsOut){
+      if(state.draft){ state.draft = null; save(); }
+      return;
+    }
+    state.draft = {
+      date: $("dateInput").value,
+      in: digitsIn,
+      out: digitsOut,
+      brk: selectedBreak,
+      memo: $("memoInput").value,
+      slot: activeSlot
+    };
+    save();
+  }
+  function restoreDraft(){
+    var d = state.draft;
+    draftReady = true;
+    if(!d) return;
+    if(d.date) $("dateInput").value = d.date;
+    digitsIn = d.in || "";
+    digitsOut = d.out || "";
+    selectedBreak = d.brk || 0;
+    if(d.memo != null) $("memoInput").value = d.memo;
+    document.querySelectorAll(".br-pill").forEach(function(el){
+      el.classList.toggle("active", parseInt(el.getAttribute("data-min"), 10) === selectedBreak);
+    });
+    setActiveSlot(d.slot === "out" ? "out" : "in");
+    renderKeypadDisplay();
+    if(digitsIn || digitsOut) toast("入力途中の内容を復元しました");
+  }
 
   function digitsToDisplay(dg){
     if(!dg) return "--:--";
@@ -729,6 +767,7 @@
     }else{
       $("calcPreview").textContent = "出勤と退勤を入れると時間が出ます";
     }
+    persistDraft();
   }
 
   function initInputs(){
@@ -871,6 +910,10 @@
     renderAll();
     toast("記録しました（" + sHM + " → " + eHM + "）");
   });
+
+  // 日付・メモの変更も下書き保存の対象にする
+  $("dateInput").addEventListener("change", function(){ persistDraft(); });
+  $("memoInput").addEventListener("change", function(){ persistDraft(); });
 
   // 時給変更
   $("wageInput").addEventListener("change", function(){
@@ -1258,6 +1301,7 @@
   }
 
   initInputs();
+  restoreDraft();
   renderAll();
 })();
 </script>
