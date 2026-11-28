@@ -152,6 +152,14 @@
   .pdf-capture .print-sum td{border-bottom:1px solid #b9bdcc;padding:5px 7px}
   .pdf-capture .print-sum td.r{text-align:right;white-space:nowrap}
   .pdf-capture .print-sum .big td{font-size:15px;font-weight:800}
+  /* PDFプレビュー（画面に様式を表示してから共有・保存する） */
+  .pdf-preview{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:none;flex-direction:column;padding:14px}
+  .pdf-preview.open{display:flex}
+  .pdf-preview .pv-sheet{position:static;left:auto;top:auto;width:auto;flex:1;overflow:auto;border-radius:10px;margin:0 0 12px}
+  .pdf-preview .pv-bar{display:flex;gap:10px}
+  .pdf-preview .pv-bar button{flex:1;padding:13px;border-radius:10px;border:0;font-size:15px;font-weight:700}
+  .pdf-preview .pv-share{background:#2f9e6e;color:#fff}
+  .pdf-preview .pv-close{background:#e8eaf2;color:#1c2033}
 
   /* 記録リスト */
   .rec{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;background:var(--card)}
@@ -290,7 +298,7 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>
         この月の一覧をPDFで出力
       </button>
-      <p class="setnote" style="margin:0">PDFボタンを押すとPDFファイルが作られます。共有メニューから人に送ったり、ファイルに保存したりできます（ネット接続が必要です）。</p>
+      <p class="setnote" style="margin:0">PDFボタンを押すとプレビューが出ます。内容を確認して「PDFを共有・保存」を押すとPDFファイルが作られ、人に送ったり保存したりできます（ネット接続が必要です）。</p>
     </div>
   </section>
 
@@ -337,7 +345,7 @@
         <h3>カレンダー同期とPDF出力</h3>
         <ol>
           <li>カレンダー同期：月のまとめの下の「カレンダー同期」カードで「今すぐ同期」を押すと、その月の勤務が予定ファイル（.ics）で書き出されます。開いてカレンダー「バイト」に追加してください</li>
-          <li>PDF出力：月のまとめの「この月の一覧をPDFで出力」を押すとPDFファイルが作られます。共有メニューから人に送ったり、ファイルに保存したりできます</li>
+          <li>PDF出力：月のまとめの「この月の一覧をPDFで出力」を押すとプレビューが出ます。確認して「PDFを共有・保存」を押すとPDFファイルが作られ、人に送ったり保存したりできます</li>
           <li>「書き出しに時給と給料を載せる」をオフにすると、CSV・PDFから時給・概算給料の欄が外れます（提出先に金額を見せたくないとき用）。CSV・PDFの形式はzip版（バイト時間）と同じです</li>
         </ol>
 
@@ -894,6 +902,32 @@
     return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js")
       .then(function(){ return loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"); });
   }
+  var pdfPreviewEl = null, pdfPreviewSheet = null;
+  function showPdfPreview(){
+    if(!pdfPreviewEl){
+      pdfPreviewEl = document.createElement("div");
+      pdfPreviewEl.className = "pdf-preview";
+      pdfPreviewSheet = document.createElement("div");
+      pdfPreviewSheet.className = "pdf-capture pv-sheet";
+      pdfPreviewSheet.id = "pdfPreviewSheet";
+      var bar = document.createElement("div");
+      bar.className = "pv-bar";
+      var shareBtn = document.createElement("button");
+      shareBtn.type = "button"; shareBtn.className = "pv-share"; shareBtn.id = "pvShareBtn";
+      shareBtn.textContent = "PDFを共有・保存";
+      shareBtn.addEventListener("click", function(){ hidePdfPreview(); exportPdfFile(); });
+      var closeBtn = document.createElement("button");
+      closeBtn.type = "button"; closeBtn.className = "pv-close"; closeBtn.id = "pvCloseBtn";
+      closeBtn.textContent = "閉じる";
+      closeBtn.addEventListener("click", function(){ hidePdfPreview(); });
+      bar.appendChild(shareBtn); bar.appendChild(closeBtn);
+      pdfPreviewEl.appendChild(pdfPreviewSheet); pdfPreviewEl.appendChild(bar);
+      document.body.appendChild(pdfPreviewEl);
+    }
+    pdfPreviewSheet.innerHTML = $("printArea").innerHTML;
+    pdfPreviewEl.classList.add("open");
+  }
+  function hidePdfPreview(){ if(pdfPreviewEl) pdfPreviewEl.classList.remove("open"); }
   function exportPdfFile(){
     ensurePdfLibs().then(function(){
       var area = $("printArea");
@@ -992,7 +1026,7 @@
       var recs = sortedMonthAsc();
       if(!recs.length){ toast("この月の記録がありません"); return; }
       updatePrintArea();
-      exportPdfFile();
+      showPdfPreview();
     });
   }
 window.addEventListener("beforeprint", function(){ updatePrintArea(); });
